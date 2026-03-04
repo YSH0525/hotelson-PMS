@@ -92,12 +92,8 @@ export const DraggableReservationBar = memo(function DraggableReservationBar({
     openEditDialog(entryType, reservation.id)
   }
 
-  const customFields = reservation.custom_fields as Record<string, unknown>
-  const rawChannel = customFields?.field_channel as string | undefined
-  const channelLabel = rawChannel && ['현금', '카드', '채널', '계좌'].includes(rawChannel)
-    ? rawChannel
-    : getChannelLabel(extractChannelKey(customFields))
-  const paymentType = (customFields?.field_payment_type as string) ?? '-'
+  const channelLabel = getChannelLabel(extractChannelKey(reservation.custom_fields as Record<string, unknown>))
+  const paymentType = (reservation.custom_fields as Record<string, unknown>)?.field_payment_type as string ?? '-'
   const amountStr = `${reservation.total_amount.toLocaleString()}원`
 
   // 대실: 빨간색 바, 이름 표시 (12px 높이)
