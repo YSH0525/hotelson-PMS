@@ -37,6 +37,7 @@ import {
   useDeleteReservation,
 } from '@/hooks/use-reservations'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
+import { CHANNELS, CHANNEL_KEYS } from '@/lib/channels'
 import type { ReservationInsert } from '@/types/database'
 
 const PAYMENT_TYPES = ['카드', '현금', '계좌이체', '채널결제'] as const
@@ -48,6 +49,7 @@ const hourlySchema = z.object({
   guest_phone: z.string().optional(),
   total_amount: z.number().min(0, '금액을 입력하세요'),
   payment_type: z.string().min(1, '결제구분을 선택하세요'),
+  reservation_channel: z.string().optional(),
   memo: z.string().optional(),
 })
 
@@ -100,6 +102,7 @@ export function HourlyDialog() {
       guest_phone: '',
       total_amount: 0,
       payment_type: '',
+      reservation_channel: 'direct',
       memo: '',
     },
   })
@@ -117,6 +120,7 @@ export function HourlyDialog() {
         guest_phone: existingReservation.guest_phone ?? '',
         total_amount: existingReservation.total_amount,
         payment_type: (customFields.field_payment_type as string) ?? '',
+        reservation_channel: (customFields.field_channel as string) ?? 'direct',
         memo: existingReservation.memo ?? '',
       })
     } else {
@@ -127,6 +131,7 @@ export function HourlyDialog() {
         guest_phone: '',
         total_amount: 0,
         payment_type: '',
+        reservation_channel: 'direct',
         memo: '',
       })
     }
@@ -157,7 +162,7 @@ export function HourlyDialog() {
           guest_phone: data.guest_phone || null,
           total_amount: data.total_amount,
           status: 'confirmed',
-          custom_fields: { field_payment_type: data.payment_type },
+          custom_fields: { field_payment_type: data.payment_type, field_channel: data.reservation_channel || 'direct' },
           memo: data.memo || null,
         })
         toast.success('대실이 수정되었습니다.')
@@ -174,7 +179,7 @@ export function HourlyDialog() {
           guest_phone: data.guest_phone || null,
           total_amount: data.total_amount,
           status: 'confirmed',
-          custom_fields: { field_payment_type: data.payment_type },
+          custom_fields: { field_payment_type: data.payment_type, field_channel: data.reservation_channel || 'direct' },
           memo: data.memo || null,
         }
         await createReservation.mutateAsync(input)
@@ -307,6 +312,26 @@ export function HourlyDialog() {
                   </p>
                 )}
               </div>
+            </div>
+
+            {/* 예약채널 */}
+            <div className="space-y-2">
+              <Label>예약채널</Label>
+              <Select
+                value={form.watch('reservation_channel')}
+                onValueChange={(v) => form.setValue('reservation_channel', v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="예약채널 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CHANNEL_KEYS.map((key) => (
+                    <SelectItem key={key} value={key}>
+                      {CHANNELS[key].label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* 메모 */}
