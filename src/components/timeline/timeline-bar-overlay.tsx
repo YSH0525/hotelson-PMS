@@ -31,10 +31,10 @@ export const TimelineBarOverlay = memo(function TimelineBarOverlay({
     const lastLayout = layouts[layouts.length - 1]
     const endBound = lastLayout.xOffset + lastLayout.width
 
-    // 대실: 같은 날
+    // 대실: 같은 날 → 셀 절반 너비
     if (checkInStr === checkOutStr) {
       const dayLayout = dateToLayout.get(checkInStr)
-      return dayLayout ? dayLayout.width - 4 : 36
+      return dayLayout ? Math.floor(dayLayout.width / 2) - 2 : 18
     }
 
     // 숙박: 여러 날

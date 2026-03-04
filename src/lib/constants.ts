@@ -37,15 +37,15 @@ export const ROLES = {
 
 export const TIMELINE_CELL_WIDTH = 40
 export const TIMELINE_TODAY_CELL_WIDTH = 80
-export const TIMELINE_CELL_HEIGHT = 48
+export const TIMELINE_CELL_HEIGHT = 32
 export const TIMELINE_ROOM_LIST_WIDTH = 180
 export const TIMELINE_HEADER_HEIGHT = 80
 
-// Zone 기반 수직 레이아웃 (48px 셀 안에서 대실/숙박/기타매출 영역 분리)
+// Zone 기반 수직 레이아웃 (32px 셀: 상단 숙박, 하단 대실+기타매출 좌우 분할)
 export const TIMELINE_ZONES = {
-  hourly:        { top: 2,  height: 12 },  // 대실: 상단 (2~14px)
-  stay:          { top: 16, height: 18 },  // 숙박: 중앙 (16~34px)
-  other_revenue: { top: 36, height: 10 },  // 기타매출: 하단 (36~46px)
+  stay:          { top: 1,  height: 16 },  // 숙박: 상단 (1~17px, 전체 너비)
+  hourly:        { top: 18, height: 12 },  // 대실: 하단 (18~30px, 셀 왼쪽 절반)
+  other_revenue: { top: 18, height: 12 },  // 기타매출: 하단 (18~30px, 셀 오른쪽 절반)
 } as const
 
 export const DEFAULT_COLORS = [
