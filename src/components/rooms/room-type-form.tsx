@@ -5,6 +5,7 @@ import { z } from 'zod/v4'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import {
   Dialog,
@@ -92,11 +93,10 @@ export function RoomTypeForm({
 
           <div className="space-y-2">
             <Label htmlFor="default_price">기본 요금 (원)</Label>
-            <Input
+            <CurrencyInput
               id="default_price"
-              type="number"
-              placeholder="0"
-              {...form.register('default_price', { valueAsNumber: true })}
+              value={form.watch('default_price') || 0}
+              onChange={(v) => form.setValue('default_price', v)}
             />
           </div>
 
