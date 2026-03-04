@@ -43,13 +43,24 @@ export const TimelineReservationBar = memo(function TimelineReservationBar({
     let left: number
     let right: number
 
-    // 대실/기타매출: 같은 날 (check_in === check_out)
+    // 대실/기타매출: 같은 날 (check_in === check_out) → 좌우 분할
     if (checkInStr === checkOutStr) {
       const dayLayout = dateToLayout.get(checkInStr)
       if (!dayLayout) return null
+      const halfWidth = Math.floor(dayLayout.width / 2)
+      if (isOtherRevenue) {
+        // 기타매출: 오른쪽 절반
+        return {
+          left: dayLayout.xOffset + halfWidth + 1,
+          width: halfWidth - 2,
+          top: zone.top,
+          height: zone.height,
+        }
+      }
+      // 대실: 왼쪽 절반
       return {
-        left: dayLayout.xOffset + 2,
-        width: dayLayout.width - 4,
+        left: dayLayout.xOffset + 1,
+        width: halfWidth - 2,
         top: zone.top,
         height: zone.height,
       }

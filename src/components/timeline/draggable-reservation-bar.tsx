@@ -48,13 +48,13 @@ export const DraggableReservationBar = memo(function DraggableReservationBar({
     const checkInStr = reservation.check_in_date
     const checkOutStr = reservation.check_out_date
 
-    // 대실: 같은 날
+    // 대실: 같은 날 → 셀 왼쪽 절반
     if (checkInStr === checkOutStr) {
       const dayLayout = dateToLayout.get(checkInStr)
       if (!dayLayout) return null
       return {
-        left: dayLayout.xOffset + 2,
-        width: dayLayout.width - 4,
+        left: dayLayout.xOffset + 1,
+        width: Math.floor(dayLayout.width / 2) - 2,
         top: zone.top,
         height: zone.height,
       }

@@ -30,6 +30,8 @@ import { Logo } from '@/components/ui/logo'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/use-auth-store'
 import { usePanelStore } from '@/stores/use-panel-store'
+import { useQuery } from '@tanstack/react-query'
+import type { HotelSettings } from '@/types/database'
 
 const mainMenuItems = [
   { title: '타임라인', url: '/timeline', icon: CalendarRange },
@@ -50,6 +52,19 @@ export function AppSidebar() {
   const profile = useAuthStore((state) => state.profile)
   const toggleInventory = usePanelStore((s) => s.toggle)
   const inventoryOpen = usePanelStore((s) => s.isOpen)
+  const supabase = createClient()
+
+  const { data: settings } = useQuery({
+    queryKey: ['hotelSettings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('hotel_settings')
+        .select('*')
+        .single()
+      if (error) throw error
+      return data as HotelSettings
+    },
+  })
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -61,8 +76,13 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-4 py-3">
-        <Link href="/timeline" className="flex items-center justify-center">
-          <Logo variant="compact" className="h-9" />
+        <Link href="/timeline" className="flex items-center gap-2">
+          <Logo variant="compact" className="h-9 shrink-0" />
+          {settings?.hotel_name && (
+            <span className="text-sm font-semibold text-foreground truncate">
+              {settings.hotel_name}
+            </span>
+          )}
         </Link>
       </SidebarHeader>
 
