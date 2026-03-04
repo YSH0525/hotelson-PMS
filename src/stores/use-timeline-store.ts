@@ -7,6 +7,7 @@ interface TimelineState {
   selectedRoomId: string | null
   selectedDate: string | null
   hidePastDays: boolean
+  searchQuery: string
   setStartDate: (date: Date) => void
   setDaysToShow: (days: number) => void
   goToMonth: (year: number, month: number) => void
@@ -15,6 +16,7 @@ interface TimelineState {
   goToToday: () => void
   setSelectedCell: (roomId: string | null, date: string | null) => void
   toggleHidePastDays: () => void
+  setSearchQuery: (query: string) => void
 }
 
 export const useTimelineStore = create<TimelineState>((set, get) => ({
@@ -23,6 +25,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   selectedRoomId: null,
   selectedDate: null,
   hidePastDays: true,
+  searchQuery: '',
 
   setStartDate: (date) => set({ startDate: date }),
   setDaysToShow: (days) => set({ daysToShow: days }),
@@ -44,4 +47,6 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
   toggleHidePastDays: () =>
     set((state) => ({ hidePastDays: !state.hidePastDays })),
+
+  setSearchQuery: (query) => set({ searchQuery: query }),
 }))
