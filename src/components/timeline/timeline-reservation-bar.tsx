@@ -3,6 +3,8 @@
 import { memo, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { TIMELINE_ZONES, ENTRY_TYPE, RESERVATION_STATUS } from '@/lib/constants'
+import { getChannelLabel, extractChannelKey } from '@/lib/channels'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { useUIStore } from '@/stores/use-ui-store'
 import type { Reservation } from '@/types/database'
 import type { DayLayout } from '@/hooks/use-timeline-layout'
@@ -102,51 +104,69 @@ export const TimelineReservationBar = memo(function TimelineReservationBar({
     )
   }
 
+  const channelLabel = getChannelLabel(extractChannelKey(reservation.custom_fields as Record<string, unknown>))
+  const paymentType = (reservation.custom_fields as Record<string, unknown>)?.field_payment_type as string ?? '-'
+  const amountStr = `${reservation.total_amount.toLocaleString()}원`
+
   // 대실: 빨간색 바, 이름 표시 (12px 높이)
   if (isHourly) {
     const timeStr = reservation.check_in_time && reservation.check_out_time
       ? `${reservation.check_in_time.slice(0, 5)}~${reservation.check_out_time.slice(0, 5)}`
       : ''
     return (
-      <div
-        className={cn(
-          'absolute rounded px-1 flex items-center text-white text-[9px] font-medium cursor-pointer',
-          'hover:brightness-110 transition-all truncate',
-        )}
-        style={{
-          ...style,
-          backgroundColor: '#EF4444',
-          opacity: 0.9,
-        }}
-        onClick={handleClick}
-        title={`[대실] ${reservation.guest_name} ${timeStr} ${statusInfo.label}`}
-      >
-        <span className="truncate">
-          {reservation.guest_name}
-        </span>
-      </div>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className={cn(
+              'absolute rounded px-1 flex items-center text-white text-[9px] font-medium cursor-pointer',
+              'hover:brightness-110 transition-all truncate',
+            )}
+            style={{
+              ...style,
+              backgroundColor: '#EF4444',
+              opacity: 0.9,
+            }}
+            onClick={handleClick}
+          >
+            <span className="truncate">
+              {reservation.guest_name}
+            </span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          <p className="font-semibold">[{channelLabel}] {reservation.guest_name}</p>
+          <p>{paymentType} | {amountStr} | {timeStr}</p>
+        </TooltipContent>
+      </Tooltip>
     )
   }
 
   // 숙박: 메인 바 (18px 높이)
   return (
-    <div
-      className={cn(
-        'absolute rounded-md px-1.5 flex items-center text-white text-[10px] font-medium cursor-pointer',
-        'hover:brightness-110 transition-all shadow-sm truncate',
-      )}
-      style={{
-        ...style,
-        backgroundColor: color,
-        opacity: reservation.status === 'checked_out' ? 0.6 : 1,
-      }}
-      onClick={handleClick}
-      title={`${reservation.guest_name} (${reservation.check_in_date} ~ ${reservation.check_out_date}) ${statusInfo.label}`}
-    >
-      <span className="truncate">
-        {reservation.guest_name}
-        {reservation.nights ? ` (${reservation.nights}박)` : ''}
-      </span>
-    </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          className={cn(
+            'absolute rounded-md px-1.5 flex items-center text-white text-[10px] font-medium cursor-pointer',
+            'hover:brightness-110 transition-all shadow-sm truncate',
+          )}
+          style={{
+            ...style,
+            backgroundColor: color,
+            opacity: reservation.status === 'checked_out' ? 0.6 : 1,
+          }}
+          onClick={handleClick}
+        >
+          <span className="truncate">
+            {reservation.guest_name}
+            {reservation.nights ? ` (${reservation.nights}박)` : ''}
+          </span>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs">
+        <p className="font-semibold">[{channelLabel}] {reservation.guest_name}</p>
+        <p>{reservation.nights}박 | {paymentType} | {amountStr}</p>
+      </TooltipContent>
+    </Tooltip>
   )
 })
