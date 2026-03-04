@@ -79,7 +79,7 @@ export function AppSidebar() {
         <Link href="/timeline" className="flex items-center gap-2">
           <Logo variant="compact" className="h-9 shrink-0" />
           {settings?.hotel_name && (
-            <span className="text-lg font-extrabold text-blue-600 dark:text-blue-400 truncate">
+            <span className="text-lg font-extrabold text-blue-600 dark:text-blue-400 truncate drop-shadow-[0_1px_2px_rgba(37,99,235,0.3)]">
               {settings.hotel_name}
             </span>
           )}
