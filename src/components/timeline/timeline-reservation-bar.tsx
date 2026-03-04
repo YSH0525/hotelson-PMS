@@ -105,7 +105,9 @@ export const TimelineReservationBar = memo(function TimelineReservationBar({
   }
 
   const channelLabel = getChannelLabel(extractChannelKey(reservation.custom_fields as Record<string, unknown>))
-  const paymentType = (reservation.custom_fields as Record<string, unknown>)?.field_payment_type as string ?? '-'
+  const rawPaymentType = (reservation.custom_fields as Record<string, unknown>)?.field_payment_type as string ?? ''
+  const PAYMENT_LABEL: Record<string, string> = { card: '카드', cash: '현금', transfer: '계좌이체', channel_pay: '채널결제' }
+  const paymentType = PAYMENT_LABEL[rawPaymentType] ?? (rawPaymentType || '-')
   const amountStr = `${reservation.total_amount.toLocaleString()}원`
 
   // 대실: 빨간색 바, 이름 표시 (12px 높이)
