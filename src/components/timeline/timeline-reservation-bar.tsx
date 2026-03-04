@@ -6,6 +6,7 @@ import { TIMELINE_ZONES, ENTRY_TYPE, RESERVATION_STATUS } from '@/lib/constants'
 import { getChannelLabel, extractChannelKey } from '@/lib/channels'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { useUIStore } from '@/stores/use-ui-store'
+import { useTimelineStore } from '@/stores/use-timeline-store'
 import type { Reservation } from '@/types/database'
 import type { DayLayout } from '@/hooks/use-timeline-layout'
 
@@ -23,6 +24,7 @@ export const TimelineReservationBar = memo(function TimelineReservationBar({
   totalWidth,
 }: TimelineReservationBarProps) {
   const openEditDialog = useUIStore((s) => s.openEditDialog)
+  const searchQuery = useTimelineStore((s) => s.searchQuery)
 
   const entryType = reservation.entry_type ?? 'stay'
   const isHourly = entryType === 'hourly'
@@ -89,6 +91,7 @@ export const TimelineReservationBar = memo(function TimelineReservationBar({
 
   if (!style) return null
 
+  const isSearchDimmed = searchQuery.length > 0 && !reservation.guest_name.includes(searchQuery)
   const statusInfo = RESERVATION_STATUS[reservation.status]
   const entryInfo = ENTRY_TYPE[entryType]
 
@@ -106,6 +109,7 @@ export const TimelineReservationBar = memo(function TimelineReservationBar({
           ...style,
           backgroundColor: '#F59E0B',
           color: '#fff',
+          opacity: isSearchDimmed ? 0.15 : 1,
         }}
         onClick={handleClick}
         title={`[기타매출] ${reservation.guest_name} ${reservation.total_amount.toLocaleString()}원`}
@@ -137,7 +141,7 @@ export const TimelineReservationBar = memo(function TimelineReservationBar({
             style={{
               ...style,
               backgroundColor: '#EF4444',
-              opacity: 0.9,
+              opacity: isSearchDimmed ? 0.15 : 0.9,
             }}
             onClick={handleClick}
           >
@@ -166,7 +170,7 @@ export const TimelineReservationBar = memo(function TimelineReservationBar({
           style={{
             ...style,
             backgroundColor: color,
-            opacity: reservation.status === 'checked_out' ? 0.6 : 1,
+            opacity: isSearchDimmed ? 0.15 : (reservation.status === 'checked_out' ? 0.6 : 1),
           }}
           onClick={handleClick}
         >

@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -261,10 +262,9 @@ export function OtherRevenueDialog() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>금액 (원)</Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  {...form.register('total_amount', { valueAsNumber: true })}
+                <CurrencyInput
+                  value={form.watch('total_amount') || 0}
+                  onChange={(v) => form.setValue('total_amount', v)}
                 />
                 {form.formState.errors.total_amount && (
                   <p className="text-sm text-destructive">

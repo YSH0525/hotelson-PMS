@@ -7,6 +7,7 @@ import { TIMELINE_ZONES, ENTRY_TYPE, RESERVATION_STATUS } from '@/lib/constants'
 import { getChannelLabel, extractChannelKey } from '@/lib/channels'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { useUIStore } from '@/stores/use-ui-store'
+import { useTimelineStore } from '@/stores/use-timeline-store'
 import type { Reservation } from '@/types/database'
 import type { DayLayout } from '@/hooks/use-timeline-layout'
 
@@ -24,7 +25,9 @@ export const DraggableReservationBar = memo(function DraggableReservationBar({
   totalWidth,
 }: DraggableReservationBarProps) {
   const openEditDialog = useUIStore((s) => s.openEditDialog)
+  const searchQuery = useTimelineStore((s) => s.searchQuery)
   const entryType = reservation.entry_type ?? 'stay'
+  const isSearchDimmed = searchQuery.length > 0 && !reservation.guest_name.includes(searchQuery)
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: reservation.id,
@@ -118,7 +121,7 @@ export const DraggableReservationBar = memo(function DraggableReservationBar({
             style={{
               ...style,
               backgroundColor: '#EF4444',
-              opacity: isDragging ? 0.3 : 0.9,
+              opacity: isDragging ? 0.3 : isSearchDimmed ? 0.15 : 0.9,
             }}
             onClick={handleClick}
           >
@@ -151,7 +154,7 @@ export const DraggableReservationBar = memo(function DraggableReservationBar({
           style={{
             ...style,
             backgroundColor: color,
-            opacity: isDragging ? 0.3 : (reservation.status === 'checked_out' ? 0.6 : 1),
+            opacity: isDragging ? 0.3 : isSearchDimmed ? 0.15 : (reservation.status === 'checked_out' ? 0.6 : 1),
           }}
           onClick={handleClick}
         >
