@@ -10,6 +10,8 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --animate-gradient-x: gradient-x 3s linear infinite;
+  --animate-marquee-scroll: marquee-scroll 6s linear infinite;
+  --animate-neon-pulse: neon-pulse 2s ease-in-out infinite;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -120,6 +122,22 @@
 @keyframes gradient-x {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
+}
+
+@keyframes marquee-scroll {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+@keyframes neon-pulse {
+  0%, 100% {
+    opacity: 1;
+    text-shadow: 0 0 4px currentColor, 0 0 8px currentColor, 0 0 16px currentColor;
+  }
+  50% {
+    opacity: 0.8;
+    text-shadow: 0 0 2px currentColor, 0 0 4px currentColor;
+  }
 }
 
 @layer base {

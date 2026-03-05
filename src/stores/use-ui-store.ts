@@ -1,8 +1,11 @@
 import { create } from 'zustand'
 import type { EntryType } from '@/lib/constants'
 
+export type LedStyle = 'marquee' | 'neon' | 'dot-matrix'
+
 interface UIState {
   sidebarOpen: boolean
+  ledStyle: LedStyle
   reservationDialogOpen: boolean
   hourlyDialogOpen: boolean
   otherRevenueDialogOpen: boolean
@@ -16,10 +19,12 @@ interface UIState {
   openOtherRevenueDialog: (reservationId?: string) => void
   closeOtherRevenueDialog: () => void
   openEditDialog: (entryType: EntryType, reservationId: string) => void
+  cycleLedStyle: () => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
   sidebarOpen: true,
+  ledStyle: 'marquee' as LedStyle,
   reservationDialogOpen: false,
   hourlyDialogOpen: false,
   otherRevenueDialogOpen: false,
@@ -68,6 +73,13 @@ export const useUIStore = create<UIState>((set) => ({
       otherRevenueDialogOpen: false,
       editingReservationId: null,
       editingEntryType: null,
+    }),
+
+  cycleLedStyle: () =>
+    set((state) => {
+      const order: LedStyle[] = ['marquee', 'neon', 'dot-matrix']
+      const idx = order.indexOf(state.ledStyle)
+      return { ledStyle: order[(idx + 1) % order.length] }
     }),
 
   openEditDialog: (entryType, reservationId) => {
