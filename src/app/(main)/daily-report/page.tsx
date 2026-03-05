@@ -315,15 +315,15 @@ export default function DailyReportPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[60px]">공실여부</TableHead>
-                    <TableHead className="w-[80px]">객실타입</TableHead>
-                    <TableHead className="w-[60px]">호실</TableHead>
+                    <TableHead className="w-[70px]">객실타입</TableHead>
+                    <TableHead className="w-[50px]">호실</TableHead>
                     <TableHead className="w-[80px]">예약채널</TableHead>
-                    <TableHead>이름</TableHead>
-                    <TableHead className="w-[40px]">박수</TableHead>
+                    <TableHead className="w-[80px]">이름</TableHead>
+                    <TableHead className="w-[40px] text-center">박수</TableHead>
                     <TableHead className="w-[60px]">결제</TableHead>
                     <TableHead className="text-right w-[80px]">금액</TableHead>
                     <TableHead className="w-[80px]">차량</TableHead>
-                    <TableHead>비고</TableHead>
+                    <TableHead className="min-w-[80px]">비고</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -352,7 +352,7 @@ export default function DailyReportPage() {
                                 {getChannelLabel(String(customFields['field_channel'] ?? ''))}
                               </TableCell>
                               <TableCell>{reservation.guest_name}</TableCell>
-                              <TableCell>{reservation.nights}</TableCell>
+                              <TableCell className="text-center">{reservation.nights}</TableCell>
                               <TableCell className="text-xs">
                                 {String(customFields['field_payment_type'] ?? '-')}
                               </TableCell>
