@@ -18,10 +18,13 @@ export function TimelineHeader({ days, occupancyByDate = {} }: TimelineHeaderPro
       {/* 날짜 행 */}
       <div className="flex">
         <div
-          className="sticky left-0 z-30 bg-background border-r border-b flex items-center justify-center font-semibold text-sm"
+          className="sticky left-0 z-30 bg-background border-r border-b flex flex-col items-center justify-center font-semibold text-sm"
           style={{ minWidth: TIMELINE_ROOM_LIST_WIDTH, width: TIMELINE_ROOM_LIST_WIDTH, height: 40 }}
         >
-          객실
+          <span>객실</span>
+          <span className="text-[10px] text-primary font-medium">
+            {format(new Date(), 'M/d (EEE)', { locale: ko })}
+          </span>
         </div>
         {days.map((dayLayout) => {
           const dayOfWeek = format(dayLayout.date, 'EEE', { locale: ko })
