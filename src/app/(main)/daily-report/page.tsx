@@ -21,13 +21,15 @@ import {
   TableFooter,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { CalendarDays, Printer, Download, Plus } from 'lucide-react'
+import { CalendarDays, Printer, Download, Plus, DoorOpen, DoorClosed } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { RESERVATION_STATUS, ENTRY_TYPE, REVENUE_CATEGORIES } from '@/lib/constants'
 import { getChannelLabel } from '@/lib/channels'
 import { useUIStore } from '@/stores/use-ui-store'
 import { useTimelineStore } from '@/stores/use-timeline-store'
+import { useUpdateReservation } from '@/hooks/use-reservations'
+import { toast } from 'sonner'
 import { ReservationDialog } from '@/components/reservations/reservation-dialog'
 import { HourlyDialog } from '@/components/reservations/hourly-dialog'
 import { OtherRevenueDialog } from '@/components/reservations/other-revenue-dialog'
@@ -40,6 +42,16 @@ export default function DailyReportPage() {
   const supabase = createClient()
   const { openReservationDialog } = useUIStore()
   const { setSelectedCell } = useTimelineStore()
+  const updateReservation = useUpdateReservation()
+
+  const handleCheckIn = async (reservationId: string) => {
+    try {
+      await updateReservation.mutateAsync({ id: reservationId, status: 'checked_in' })
+      toast.success('체크인 되었습니다.')
+    } catch {
+      toast.error('체크인에 실패했습니다.')
+    }
+  }
 
   const { data: roomTypes = [] } = useQuery({
     queryKey: ['roomTypes'],
@@ -145,8 +157,9 @@ export default function DailyReportPage() {
     const stayRows = reportData.flatMap(({ roomType, roomData }) =>
       roomData.map(({ room, reservation }) => {
         const cf = (reservation?.custom_fields ?? {}) as Record<string, unknown>
+        const status = !reservation ? '공실' : reservation.status === 'checked_in' ? '투숙' : reservation.status === 'checked_out' ? '퇴실' : '예약'
         return {
-          '공실여부': reservation ? '투숙' : '공실',
+          '상태': status,
           '객실타입': roomType.name,
           '호실': `${room.room_number}호`,
           '예약채널': reservation ? getChannelLabel(String(cf['field_channel'] ?? '')) : '',
@@ -314,7 +327,8 @@ export default function DailyReportPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[60px]">공실여부</TableHead>
+                    <TableHead className="w-[44px] text-center">체크인</TableHead>
+                    <TableHead className="w-[50px]">상태</TableHead>
                     <TableHead className="w-[70px]">객실타입</TableHead>
                     <TableHead className="w-[50px]">호실</TableHead>
                     <TableHead className="w-[80px]">예약채널</TableHead>
@@ -330,13 +344,33 @@ export default function DailyReportPage() {
                   {reportData.map(({ roomType, roomData }) =>
                     roomData.map(({ room, reservation }) => {
                       const customFields = (reservation?.custom_fields ?? {}) as Record<string, unknown>
+                      const isCheckedIn = reservation?.status === 'checked_in' || reservation?.status === 'checked_out'
                       return (
                         <TableRow key={room.id} className={!reservation ? 'text-muted-foreground' : ''}>
-                          <TableCell>
-                            {reservation ? (
-                              <Badge variant="default" className="text-[10px] bg-blue-500">투숙</Badge>
+                          {/* 체크인 아이콘 */}
+                          <TableCell className="text-center">
+                            {!reservation ? null : isCheckedIn ? (
+                              <DoorClosed className="h-4 w-4 mx-auto text-muted-foreground" />
                             ) : (
+                              <button
+                                onClick={() => handleCheckIn(reservation.id)}
+                                className="inline-flex items-center justify-center hover:text-primary transition-colors"
+                                title="체크인"
+                              >
+                                <DoorOpen className="h-4 w-4 text-amber-500 hover:text-primary" />
+                              </button>
+                            )}
+                          </TableCell>
+                          {/* 상태 (공실/예약/투숙) */}
+                          <TableCell>
+                            {!reservation ? (
                               <Badge variant="outline" className="text-[10px] text-green-600 border-green-400">공실</Badge>
+                            ) : reservation.status === 'checked_in' ? (
+                              <Badge variant="default" className="text-[10px] bg-blue-500">투숙</Badge>
+                            ) : reservation.status === 'checked_out' ? (
+                              <Badge variant="secondary" className="text-[10px]">퇴실</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-400">예약</Badge>
                             )}
                           </TableCell>
                           <TableCell>
@@ -391,7 +425,7 @@ export default function DailyReportPage() {
                 </TableBody>
                 <TableFooter>
                   <TableRow>
-                    <TableCell colSpan={7} className="font-bold">숙박 합계</TableCell>
+                    <TableCell colSpan={8} className="font-bold">숙박 합계</TableCell>
                     <TableCell className="text-right font-bold">
                       {stayAmount.toLocaleString()}원
                     </TableCell>
