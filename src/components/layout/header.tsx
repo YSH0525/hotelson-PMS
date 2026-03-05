@@ -14,7 +14,7 @@ export function Header({ title }: HeaderProps) {
       <SidebarTrigger />
       <Separator orientation="vertical" className="h-6" />
       <h1 className="font-semibold text-lg">{title}</h1>
-      <div className="ml-auto text-sm text-muted-foreground">
+      <div className="flex-1 text-center text-sm text-muted-foreground">
         {formatKoreanDate(new Date())}
       </div>
     </header>
