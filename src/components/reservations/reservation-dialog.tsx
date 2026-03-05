@@ -341,7 +341,7 @@ export function ReservationDialog() {
               </div>
             </div>
 
-            {/* 금액 */}
+            {/* 금액 + 차량 */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>총 금액 (원)</Label>
@@ -351,9 +351,19 @@ export function ReservationDialog() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>이메일</Label>
-                <Input placeholder="email@example.com" {...form.register('guest_email')} />
+                <Label>차량번호</Label>
+                <Input
+                  placeholder="12가 3456"
+                  value={String(form.watch('custom_fields.field_vehicle') ?? '')}
+                  onChange={(e) => form.setValue('custom_fields.field_vehicle', e.target.value)}
+                />
               </div>
+            </div>
+
+            {/* 이메일 */}
+            <div className="space-y-2">
+              <Label>이메일</Label>
+              <Input placeholder="email@example.com" {...form.register('guest_email')} />
             </div>
 
             {/* 동적 폼 필드 */}
