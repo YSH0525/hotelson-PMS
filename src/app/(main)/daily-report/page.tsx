@@ -260,61 +260,45 @@ export default function DailyReportPage() {
         </div>
 
         <div ref={printRef} className="space-y-4">
-          {/* 요약 카드 - Row 1: 객실/점유 */}
-          <div className="grid grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="pt-4">
-                <p className="text-sm text-muted-foreground">전체 객실</p>
-                <p className="text-2xl font-bold">{totalRooms}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <p className="text-sm text-muted-foreground">투숙 (숙박)</p>
-                <p className="text-2xl font-bold">{stayOccupied}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <p className="text-sm text-muted-foreground">대실</p>
-                <p className="text-2xl font-bold">{hourlyCount}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <p className="text-sm text-muted-foreground">점유율</p>
-                <p className="text-2xl font-bold">{occupancyRate}%</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* 요약 카드 - Row 2: 매출 */}
-          <div className="grid grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="pt-4">
-                <p className="text-sm text-muted-foreground">숙박매출</p>
-                <p className="text-2xl font-bold">{stayAmount.toLocaleString()}원</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <p className="text-sm text-muted-foreground">대실매출</p>
-                <p className="text-2xl font-bold">{hourlyAmount.toLocaleString()}원</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <p className="text-sm text-muted-foreground">기타매출</p>
-                <p className="text-2xl font-bold">{otherRevenueAmount.toLocaleString()}원</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <p className="text-sm text-muted-foreground">총매출</p>
-                <p className="text-2xl font-bold text-primary">{totalAmount.toLocaleString()}원</p>
-              </CardContent>
-            </Card>
-          </div>
+          {/* 요약 바 */}
+          <Card>
+            <CardContent className="py-3">
+              <div className="flex items-center divide-x text-sm">
+                <div className="px-4 first:pl-0">
+                  <span className="text-muted-foreground">객실</span>{' '}
+                  <span className="font-semibold">{totalRooms}</span>
+                </div>
+                <div className="px-4">
+                  <span className="text-muted-foreground">투숙</span>{' '}
+                  <span className="font-semibold">{stayOccupied}</span>
+                </div>
+                <div className="px-4">
+                  <span className="text-muted-foreground">대실</span>{' '}
+                  <span className="font-semibold">{hourlyCount}</span>
+                </div>
+                <div className="px-4">
+                  <span className="text-muted-foreground">점유율</span>{' '}
+                  <span className="font-semibold">{occupancyRate}%</span>
+                </div>
+                <div className="px-4">
+                  <span className="text-muted-foreground">숙박</span>{' '}
+                  <span className="font-semibold">{stayAmount.toLocaleString()}원</span>
+                </div>
+                <div className="px-4">
+                  <span className="text-muted-foreground">대실</span>{' '}
+                  <span className="font-semibold">{hourlyAmount.toLocaleString()}원</span>
+                </div>
+                <div className="px-4">
+                  <span className="text-muted-foreground">기타</span>{' '}
+                  <span className="font-semibold">{otherRevenueAmount.toLocaleString()}원</span>
+                </div>
+                <div className="px-4 text-primary">
+                  <span className="font-medium">총매출</span>{' '}
+                  <span className="font-bold">{totalAmount.toLocaleString()}원</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* 숙박 테이블 */}
           <Card>
