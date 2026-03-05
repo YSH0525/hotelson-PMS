@@ -236,7 +236,7 @@ export function TimelineGrid({ startDate, daysToShow }: TimelineGridProps) {
                         </div>
 
                         {/* 날짜 셀 */}
-                        <div className="flex relative">
+                        <div className="flex relative z-0">
                           {layout.days.map((dayLayout) => (
                             <TimelineCell
                               key={dayLayout.dateStr}
