@@ -58,6 +58,9 @@ export function useCreateReservation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reservations'] })
       queryClient.invalidateQueries({ queryKey: ['sameDayEntries'] })
+      queryClient.invalidateQueries({ queryKey: ['dailyStayReservations'] })
+      queryClient.invalidateQueries({ queryKey: ['dailyHourlyReservations'] })
+      queryClient.invalidateQueries({ queryKey: ['dailyOtherRevenue'] })
     },
   })
 }
@@ -78,6 +81,9 @@ export function useUpdateReservation() {
       queryClient.invalidateQueries({ queryKey: ['reservations'] })
       queryClient.invalidateQueries({ queryKey: ['reservation'] })
       queryClient.invalidateQueries({ queryKey: ['sameDayEntries'] })
+      queryClient.invalidateQueries({ queryKey: ['dailyStayReservations'] })
+      queryClient.invalidateQueries({ queryKey: ['dailyHourlyReservations'] })
+      queryClient.invalidateQueries({ queryKey: ['dailyOtherRevenue'] })
     },
   })
 }
@@ -97,6 +103,9 @@ export function useDeleteReservation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reservations'] })
       queryClient.invalidateQueries({ queryKey: ['sameDayEntries'] })
+      queryClient.invalidateQueries({ queryKey: ['dailyStayReservations'] })
+      queryClient.invalidateQueries({ queryKey: ['dailyHourlyReservations'] })
+      queryClient.invalidateQueries({ queryKey: ['dailyOtherRevenue'] })
     },
   })
 }

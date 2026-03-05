@@ -21,10 +21,16 @@ import {
   TableFooter,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { CalendarDays, Printer, Download } from 'lucide-react'
+import { CalendarDays, Printer, Download, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { RESERVATION_STATUS, ENTRY_TYPE, REVENUE_CATEGORIES } from '@/lib/constants'
+import { getChannelLabel } from '@/lib/channels'
+import { useUIStore } from '@/stores/use-ui-store'
+import { useTimelineStore } from '@/stores/use-timeline-store'
+import { ReservationDialog } from '@/components/reservations/reservation-dialog'
+import { HourlyDialog } from '@/components/reservations/hourly-dialog'
+import { OtherRevenueDialog } from '@/components/reservations/other-revenue-dialog'
 import type { Reservation, RoomType, Room } from '@/types/database'
 
 export default function DailyReportPage() {
@@ -32,6 +38,8 @@ export default function DailyReportPage() {
   const dateStr = format(selectedDate, 'yyyy-MM-dd')
   const printRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
+  const { openReservationDialog } = useUIStore()
+  const { setSelectedCell } = useTimelineStore()
 
   const { data: roomTypes = [] } = useQuery({
     queryKey: ['roomTypes'],
@@ -133,26 +141,24 @@ export default function DailyReportPage() {
   })
 
   const handleExcelExport = () => {
-    // 숙박 시트
-    const stayRows = stayReservations.map((res) => {
-      const room = rooms.find((r) => r.id === res.room_id)
-      const roomType = roomTypes.find((rt) => rt.id === res.room_type_id)
-      const customFields = (res.custom_fields ?? {}) as Record<string, unknown>
-      return {
-        '객실타입': roomType?.name ?? '',
-        '호실': room?.room_number ? `${room.room_number}호` : '',
-        '투숙객': res.guest_name,
-        '연락처': res.guest_phone ?? '',
-        '체크인': res.check_in_date,
-        '체크아웃': res.check_out_date,
-        '박수': res.nights,
-        '상태': RESERVATION_STATUS[res.status]?.label ?? res.status,
-        '금액': res.total_amount,
-        '예약채널': String(customFields['field_channel'] ?? ''),
-        '결제구분': String(customFields['field_payment_type'] ?? ''),
-        '메모': res.memo ?? '',
-      }
-    })
+    // 숙박 시트 — 전체 객실 (공실 포함)
+    const stayRows = reportData.flatMap(({ roomType, roomData }) =>
+      roomData.map(({ room, reservation }) => {
+        const cf = (reservation?.custom_fields ?? {}) as Record<string, unknown>
+        return {
+          '공실여부': reservation ? '투숙' : '공실',
+          '객실타입': roomType.name,
+          '호실': `${room.room_number}호`,
+          '예약채널': reservation ? getChannelLabel(String(cf['field_channel'] ?? '')) : '',
+          '이름': reservation?.guest_name ?? '',
+          '박수': reservation?.nights ?? '',
+          '결제': String(cf['field_payment_type'] ?? ''),
+          '금액': reservation?.total_amount ?? '',
+          '차량': String(cf['field_vehicle'] ?? ''),
+          '비고': reservation?.memo ?? '',
+        }
+      })
+    )
 
     // 대실 시트
     const hourlyRows = hourlyReservations.map((res) => {
@@ -308,61 +314,88 @@ export default function DailyReportPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[60px]">공실여부</TableHead>
                     <TableHead className="w-[80px]">객실타입</TableHead>
                     <TableHead className="w-[60px]">호실</TableHead>
-                    <TableHead>투숙객</TableHead>
-                    <TableHead>연락처</TableHead>
-                    <TableHead className="w-[90px]">체크인</TableHead>
-                    <TableHead className="w-[90px]">체크아웃</TableHead>
-                    <TableHead className="w-[40px]">박</TableHead>
-                    <TableHead className="w-[60px]">상태</TableHead>
+                    <TableHead className="w-[80px]">예약채널</TableHead>
+                    <TableHead>이름</TableHead>
+                    <TableHead className="w-[40px]">박수</TableHead>
+                    <TableHead className="w-[60px]">결제</TableHead>
                     <TableHead className="text-right w-[80px]">금액</TableHead>
+                    <TableHead className="w-[80px]">차량</TableHead>
+                    <TableHead>비고</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {reportData.map(({ roomType, roomData }) =>
-                    roomData.map(({ room, reservation }) => (
-                      <TableRow key={room.id} className={!reservation ? 'text-muted-foreground' : ''}>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: roomType.color }} />
-                            <span className="text-xs">{roomType.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">{room.room_number}호</TableCell>
-                        {reservation ? (
-                          <>
-                            <TableCell>{reservation.guest_name}</TableCell>
-                            <TableCell className="text-xs">{reservation.guest_phone ?? '-'}</TableCell>
-                            <TableCell className="text-xs">{reservation.check_in_date}</TableCell>
-                            <TableCell className="text-xs">{reservation.check_out_date}</TableCell>
-                            <TableCell>{reservation.nights}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="text-[10px]">
-                                {RESERVATION_STATUS[reservation.status]?.label}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right font-medium">
-                              {reservation.total_amount.toLocaleString()}
-                            </TableCell>
-                          </>
-                        ) : (
-                          <>
-                            <TableCell colSpan={7} className="text-center text-xs">
-                              — 공실 —
-                            </TableCell>
-                          </>
-                        )}
-                      </TableRow>
-                    ))
+                    roomData.map(({ room, reservation }) => {
+                      const customFields = (reservation?.custom_fields ?? {}) as Record<string, unknown>
+                      return (
+                        <TableRow key={room.id} className={!reservation ? 'text-muted-foreground' : ''}>
+                          <TableCell>
+                            {reservation ? (
+                              <Badge variant="default" className="text-[10px] bg-blue-500">투숙</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] text-green-600 border-green-400">공실</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: roomType.color }} />
+                              <span className="text-xs">{roomType.name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-medium">{room.room_number}호</TableCell>
+                          {reservation ? (
+                            <>
+                              <TableCell className="text-xs">
+                                {getChannelLabel(String(customFields['field_channel'] ?? ''))}
+                              </TableCell>
+                              <TableCell>{reservation.guest_name}</TableCell>
+                              <TableCell>{reservation.nights}</TableCell>
+                              <TableCell className="text-xs">
+                                {String(customFields['field_payment_type'] ?? '-')}
+                              </TableCell>
+                              <TableCell className="text-right font-medium">
+                                {reservation.total_amount.toLocaleString()}
+                              </TableCell>
+                              <TableCell className="text-xs">
+                                {String(customFields['field_vehicle'] ?? '-')}
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground">
+                                {reservation.memo ?? '-'}
+                              </TableCell>
+                            </>
+                          ) : (
+                            <>
+                              <TableCell colSpan={7}>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 text-xs text-primary"
+                                  onClick={() => {
+                                    setSelectedCell(room.id, dateStr)
+                                    openReservationDialog()
+                                  }}
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  예약 입력
+                                </Button>
+                              </TableCell>
+                            </>
+                          )}
+                        </TableRow>
+                      )
+                    })
                   )}
                 </TableBody>
                 <TableFooter>
                   <TableRow>
-                    <TableCell colSpan={8} className="font-bold">숙박 합계</TableCell>
+                    <TableCell colSpan={7} className="font-bold">숙박 합계</TableCell>
                     <TableCell className="text-right font-bold">
                       {stayAmount.toLocaleString()}원
                     </TableCell>
+                    <TableCell colSpan={2} />
                   </TableRow>
                 </TableFooter>
               </Table>
@@ -486,6 +519,9 @@ export default function DailyReportPage() {
           </Card>
         </div>
       </div>
+      <ReservationDialog />
+      <HourlyDialog />
+      <OtherRevenueDialog />
     </>
   )
 }
