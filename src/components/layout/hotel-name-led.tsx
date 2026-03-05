@@ -1,8 +1,8 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useUIStore } from '@/stores/use-ui-store'
 import type { LedStyle } from '@/stores/use-ui-store'
-import { cn } from '@/lib/utils'
 
 interface HotelNameLedProps {
   name: string
@@ -11,7 +11,7 @@ interface HotelNameLedProps {
 const STYLE_LABELS: Record<LedStyle, string> = {
   marquee: '전광판',
   neon: '네온',
-  'dot-matrix': '도트',
+  typewriter: '타이핑',
 }
 
 export function HotelNameLed({ name }: HotelNameLedProps) {
@@ -31,7 +31,7 @@ export function HotelNameLed({ name }: HotelNameLedProps) {
     >
       {ledStyle === 'marquee' && <MarqueeStyle name={name} />}
       {ledStyle === 'neon' && <NeonStyle name={name} />}
-      {ledStyle === 'dot-matrix' && <DotMatrixStyle name={name} />}
+      {ledStyle === 'typewriter' && <TypewriterStyle name={name} />}
     </button>
   )
 }
@@ -49,30 +49,58 @@ function MarqueeStyle({ name }: { name: string }) {
 function NeonStyle({ name }: { name: string }) {
   return (
     <div className="text-center">
-      <span
-        className={cn(
-          'text-sm font-bold text-cyan-400 animate-neon-pulse',
-        )}
-      >
+      <span className="text-sm font-bold text-cyan-400 animate-neon-pulse">
         {name}
       </span>
     </div>
   )
 }
 
-function DotMatrixStyle({ name }: { name: string }) {
+function TypewriterStyle({ name }: { name: string }) {
+  const [displayedLen, setDisplayedLen] = useState(0)
+
+  useEffect(() => {
+    setDisplayedLen(0)
+    let i = 0
+    const interval = setInterval(() => {
+      i++
+      if (i > name.length) {
+        clearInterval(interval)
+        // 다 쓴 후 잠시 대기 후 다시 시작
+        setTimeout(() => setDisplayedLen(0), 2000)
+        return
+      }
+      setDisplayedLen(i)
+    }, 150)
+    return () => clearInterval(interval)
+  }, [name])
+
+  // 반복 트리거: displayedLen이 0으로 리셋되면 다시 타이핑 시작
+  useEffect(() => {
+    if (displayedLen === 0 && name.length > 0) {
+      let i = 0
+      const interval = setInterval(() => {
+        i++
+        if (i > name.length) {
+          clearInterval(interval)
+          setTimeout(() => setDisplayedLen(0), 2000)
+          return
+        }
+        setDisplayedLen(i)
+      }, 150)
+      return () => clearInterval(interval)
+    }
+  }, [displayedLen, name])
+
   return (
-    <div className="text-center">
+    <div className="text-center whitespace-nowrap">
       <span
-        className="text-sm font-bold text-green-400"
-        style={{
-          fontFamily: '"Courier New", monospace',
-          letterSpacing: '0.15em',
-          textShadow: '0 0 6px #22c55e, 0 0 12px #22c55e40',
-        }}
+        className="text-sm font-bold text-amber-300"
+        style={{ fontFamily: '"Courier New", monospace' }}
       >
-        {name}
+        {name.slice(0, displayedLen)}
       </span>
+      <span className="inline-block w-[2px] h-[14px] bg-amber-300 align-middle ml-[1px] animate-typewriter-cursor" />
     </div>
   )
 }
