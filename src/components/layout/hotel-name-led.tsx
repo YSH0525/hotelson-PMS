@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useUIStore } from '@/stores/use-ui-store'
 import type { LedStyle } from '@/stores/use-ui-store'
 
@@ -58,39 +58,34 @@ function NeonStyle({ name }: { name: string }) {
 
 function TypewriterStyle({ name }: { name: string }) {
   const [displayedLen, setDisplayedLen] = useState(0)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    setDisplayedLen(0)
     let i = 0
-    const interval = setInterval(() => {
-      i++
-      if (i > name.length) {
-        clearInterval(interval)
-        // 다 쓴 후 잠시 대기 후 다시 시작
-        setTimeout(() => setDisplayedLen(0), 2000)
-        return
-      }
-      setDisplayedLen(i)
-    }, 150)
-    return () => clearInterval(interval)
-  }, [name])
+    setDisplayedLen(0)
 
-  // 반복 트리거: displayedLen이 0으로 리셋되면 다시 타이핑 시작
-  useEffect(() => {
-    if (displayedLen === 0 && name.length > 0) {
-      let i = 0
-      const interval = setInterval(() => {
+    const startTyping = () => {
+      i = 0
+      setDisplayedLen(0)
+      intervalRef.current = setInterval(() => {
         i++
         if (i > name.length) {
-          clearInterval(interval)
-          setTimeout(() => setDisplayedLen(0), 2000)
+          if (intervalRef.current) clearInterval(intervalRef.current)
+          timeoutRef.current = setTimeout(startTyping, 2000)
           return
         }
         setDisplayedLen(i)
       }, 150)
-      return () => clearInterval(interval)
     }
-  }, [displayedLen, name])
+
+    startTyping()
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
+  }, [name])
 
   return (
     <div className="text-center whitespace-nowrap">
