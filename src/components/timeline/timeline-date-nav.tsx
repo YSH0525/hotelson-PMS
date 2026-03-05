@@ -13,22 +13,8 @@ export function TimelineDateNav() {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2 border-b bg-background">
-      <Button variant="outline" size="sm" onClick={goToToday}>
-        <CalendarDays className="h-4 w-4 mr-1" />
-        오늘
-      </Button>
-      <Button variant="ghost" size="icon" onClick={goToPrevMonth}>
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
-      <span className="font-semibold text-lg min-w-[140px] text-center">
-        {format(startDate, 'yyyy년 M월', { locale: ko })}
-      </span>
-      <Button variant="ghost" size="icon" onClick={goToNextMonth}>
-        <ChevronRight className="h-4 w-4" />
-      </Button>
-
-      <div className="ml-auto flex items-center gap-2">
-        {/* 예약자 검색 */}
+      {/* 왼쪽: 검색 + 체크인 */}
+      <div className="flex items-center gap-2">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -46,10 +32,24 @@ export function TimelineDateNav() {
             </button>
           )}
         </div>
-
-        {/* 당일 체크인 */}
         <TimelineCheckinPopover />
+      </div>
 
+      {/* 중앙: 월 네비게이션 */}
+      <div className="flex-1 flex items-center justify-center gap-1">
+        <Button variant="outline" size="sm" onClick={goToToday}>
+          <CalendarDays className="h-4 w-4 mr-1" />
+          오늘
+        </Button>
+        <Button variant="ghost" size="icon" onClick={goToPrevMonth}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <span className="font-semibold text-lg min-w-[140px] text-center">
+          {format(startDate, 'yyyy년 M월', { locale: ko })}
+        </span>
+        <Button variant="ghost" size="icon" onClick={goToNextMonth}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
         <Button
           variant={hidePastDays ? 'default' : 'outline'}
           size="sm"
