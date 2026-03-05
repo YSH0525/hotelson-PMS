@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { EntryType } from '@/lib/constants'
 
-export type LedStyle = 'marquee' | 'neon' | 'dot-matrix'
+export type LedStyle = 'marquee' | 'neon' | 'typewriter'
 
 interface UIState {
   sidebarOpen: boolean
@@ -77,7 +77,7 @@ export const useUIStore = create<UIState>((set) => ({
 
   cycleLedStyle: () =>
     set((state) => {
-      const order: LedStyle[] = ['marquee', 'neon', 'dot-matrix']
+      const order: LedStyle[] = ['marquee', 'neon', 'typewriter']
       const idx = order.indexOf(state.ledStyle)
       return { ledStyle: order[(idx + 1) % order.length] }
     }),
