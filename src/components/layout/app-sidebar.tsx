@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
 import { Logo } from '@/components/ui/logo'
+import { HotelNameLed } from '@/components/layout/hotel-name-led'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/use-auth-store'
 import { usePanelStore } from '@/stores/use-panel-store'
@@ -79,9 +80,7 @@ export function AppSidebar() {
         <Link href="/timeline" className="flex items-center gap-2">
           <Logo variant="compact" className="h-9 shrink-0" />
           {settings?.hotel_name && (
-            <span className="text-lg font-extrabold truncate bg-gradient-to-r from-blue-600 via-purple-500 to-blue-600 bg-[length:200%_auto] bg-clip-text text-transparent animate-gradient-x">
-              {settings.hotel_name}
-            </span>
+            <HotelNameLed name={settings.hotel_name} />
           )}
         </Link>
       </SidebarHeader>

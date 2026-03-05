@@ -1,6 +1,7 @@
 'use client'
 
 import { useTimelineStore } from '@/stores/use-timeline-store'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ChevronLeft, ChevronRight, CalendarDays, Eye, EyeOff, Search, X } from 'lucide-react'
@@ -37,10 +38,25 @@ export function TimelineDateNav() {
 
       {/* 중앙: 월 네비게이션 */}
       <div className="flex-1 flex items-center justify-center gap-1">
-        <Button variant="outline" size="sm" onClick={goToToday}>
-          <CalendarDays className="h-4 w-4 mr-1" />
-          오늘
-        </Button>
+        <div className="inline-flex items-center rounded-md border divide-x">
+          <Button variant="ghost" size="sm" className="rounded-r-none border-0" onClick={goToToday}>
+            <CalendarDays className="h-4 w-4 mr-1" />
+            오늘
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn('rounded-l-none border-0', hidePastDays && 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground')}
+            onClick={toggleHidePastDays}
+          >
+            {hidePastDays ? (
+              <EyeOff className="h-4 w-4 mr-1" />
+            ) : (
+              <Eye className="h-4 w-4 mr-1" />
+            )}
+            {hidePastDays ? '과거 숨김' : '전체 표시'}
+          </Button>
+        </div>
         <Button variant="ghost" size="icon" onClick={goToPrevMonth}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -49,18 +65,6 @@ export function TimelineDateNav() {
         </span>
         <Button variant="ghost" size="icon" onClick={goToNextMonth}>
           <ChevronRight className="h-4 w-4" />
-        </Button>
-        <Button
-          variant={hidePastDays ? 'default' : 'outline'}
-          size="sm"
-          onClick={toggleHidePastDays}
-        >
-          {hidePastDays ? (
-            <EyeOff className="h-4 w-4 mr-1" />
-          ) : (
-            <Eye className="h-4 w-4 mr-1" />
-          )}
-          {hidePastDays ? '과거 숨김' : '전체 표시'}
         </Button>
       </div>
     </div>
