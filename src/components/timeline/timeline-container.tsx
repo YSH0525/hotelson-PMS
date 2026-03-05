@@ -1,7 +1,6 @@
 'use client'
 
 import { useTimelineStore } from '@/stores/use-timeline-store'
-import { TimelineHeader } from './timeline-header'
 import { TimelineDateNav } from './timeline-date-nav'
 import { TimelineGrid } from './timeline-grid'
 
