@@ -172,19 +172,20 @@ export function TimelineGrid({ startDate, daysToShow }: TimelineGridProps) {
   } = useTimelineDrag({ roomYPositions, startDate, layout })
 
   return (
-    <DndContext
-      sensors={sensors}
-      modifiers={[snapModifier]}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      onDragCancel={handleDragCancel}
-    >
-      <div className="relative">
-        <TimelineHeader
-          days={layout.days}
-          occupancyByDate={occupancyByDate}
-        />
+    <>
+      <TimelineHeader
+        days={layout.days}
+        occupancyByDate={occupancyByDate}
+      />
 
+      <DndContext
+        sensors={sensors}
+        modifiers={[snapModifier]}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+      <div className="relative">
         {/* 그리드 본문 */}
         {flatRooms.length === 0 ? (
           <div className="flex items-center justify-center h-64 text-muted-foreground">
@@ -294,6 +295,7 @@ export function TimelineGrid({ startDate, daysToShow }: TimelineGridProps) {
           />
         ) : null}
       </DragOverlay>
-    </DndContext>
+      </DndContext>
+    </>
   )
 }
