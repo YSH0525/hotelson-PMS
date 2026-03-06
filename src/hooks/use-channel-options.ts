@@ -18,26 +18,35 @@ export interface ChannelOption {
 export function useChannelOptions() {
   const { data: schema } = useDefaultFormSchema()
 
-  const options = useMemo(() => {
+  const { options, defaultPaymentTypeMap } = useMemo(() => {
     const fields = (schema?.fields ?? []) as unknown as FormFieldDefinition[]
     const channelField = fields.find((f) => f.id === 'field_channel')
 
     if (channelField?.options && channelField.options.length > 0) {
-      return channelField.options
-        .sort((a, b) => a.sortOrder - b.sortOrder)
-        .map((opt) => ({
+      const sorted = channelField.options.sort((a, b) => a.sortOrder - b.sortOrder)
+      const ptMap = new Map<string, string>()
+      sorted.forEach((opt) => {
+        if (opt.defaultPaymentType) ptMap.set(opt.value, opt.defaultPaymentType)
+      })
+      return {
+        options: sorted.map((opt) => ({
           key: opt.value,
           label: opt.label,
           color: opt.color || '#6B7280',
-        }))
+        })),
+        defaultPaymentTypeMap: ptMap,
+      }
     }
 
     // fallback: 하드코딩된 CHANNELS
-    return Object.entries(CHANNELS).map(([key, ch]) => ({
-      key,
-      label: ch.label,
-      color: ch.color,
-    }))
+    return {
+      options: Object.entries(CHANNELS).map(([key, ch]) => ({
+        key,
+        label: ch.label,
+        color: ch.color,
+      })),
+      defaultPaymentTypeMap: new Map<string, string>(),
+    }
   }, [schema])
 
   const getLabel = useMemo(() => {
@@ -53,5 +62,9 @@ export function useChannelOptions() {
     return (key: string): string => map.get(key) ?? '#6B7280'
   }, [options])
 
-  return { options, getLabel, getColor }
+  const getDefaultPaymentType = useMemo(() => {
+    return (key: string): string | undefined => defaultPaymentTypeMap.get(key)
+  }, [defaultPaymentTypeMap])
+
+  return { options, getLabel, getColor, getDefaultPaymentType }
 }

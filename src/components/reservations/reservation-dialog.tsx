@@ -36,6 +36,7 @@ import { useRoomTypes } from '@/hooks/use-room-types'
 import { useRooms } from '@/hooks/use-rooms'
 import { useReservation, useCreateReservation, useUpdateReservation, useDeleteReservation } from '@/hooks/use-reservations'
 import { useDefaultFormSchema } from '@/hooks/use-form-schemas'
+import { useChannelOptions } from '@/hooks/use-channel-options'
 import { DynamicFieldRenderer } from '@/components/form-builder/dynamic-field-renderer'
 import { RESERVATION_STATUS } from '@/lib/constants'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
@@ -63,6 +64,7 @@ export function ReservationDialog() {
   const { data: roomTypes = [] } = useRoomTypes()
   const { data: rooms = [] } = useRooms()
   const { data: formSchema } = useDefaultFormSchema()
+  const { getDefaultPaymentType } = useChannelOptions()
   const { data: existingReservation } = useReservation(editingReservationId)
   const createReservation = useCreateReservation()
   const updateReservation = useUpdateReservation()
@@ -153,6 +155,16 @@ export function ReservationDialog() {
       form.setValue('room_type_id', typeId)
     }
   }, [watchRoomId])
+
+  // 예약채널 변경 시 기본 결제구분 자동 설정
+  const watchChannel = form.watch('custom_fields.field_channel')
+  useEffect(() => {
+    if (!watchChannel || typeof watchChannel !== 'string') return
+    const defaultPt = getDefaultPaymentType(watchChannel)
+    if (defaultPt) {
+      form.setValue('custom_fields.field_payment_type', defaultPt)
+    }
+  }, [watchChannel, getDefaultPaymentType])
 
   const handleSubmit = form.handleSubmit(async (data) => {
     try {
