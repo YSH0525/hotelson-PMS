@@ -67,8 +67,14 @@ export function HourlyDialog() {
   const { options: channelOptions, getDefaultPaymentType } = useChannelOptions()
 
   const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [manualRoomId, setManualRoomId] = useState<string | null>(null)
 
   const isEditing = !!editingReservationId
+
+  // 실제 사용할 roomId (타임라인에서 선택 or 다이얼로그에서 직접 선택)
+  const effectiveRoomId = isEditing
+    ? existingReservation?.room_id ?? null
+    : selectedRoomId ?? manualRoomId
 
   // 선택된 호실의 객실타입 ID
   const getTypeIdForRoom = (roomId: string) => {
@@ -78,13 +84,15 @@ export function HourlyDialog() {
 
   // 선택된 객실 정보 (표시용)
   const selectedRoom = useMemo(() => {
-    const roomId = isEditing ? existingReservation?.room_id : selectedRoomId
-    if (!roomId) return null
-    const room = rooms.find((r) => r.id === roomId)
+    if (!effectiveRoomId) return null
+    const room = rooms.find((r) => r.id === effectiveRoomId)
     if (!room) return null
     const roomType = roomTypes.find((rt) => rt.id === room.room_type_id)
     return { room, roomType }
-  }, [isEditing, existingReservation, selectedRoomId, rooms, roomTypes])
+  }, [effectiveRoomId, rooms, roomTypes])
+
+  // 타임라인에서 호실이 이미 선택되어 있는지 여부
+  const hasPreselectedRoom = !!(isEditing ? existingReservation?.room_id : selectedRoomId)
 
   // 선택된 날짜 (표시용)
   const displayDate = useMemo(() => {
@@ -110,7 +118,10 @@ export function HourlyDialog() {
 
   // 다이얼로그 열릴 때 값 초기화
   useEffect(() => {
-    if (!hourlyDialogOpen) return
+    if (!hourlyDialogOpen) {
+      setManualRoomId(null)
+      return
+    }
 
     if (isEditing && existingReservation) {
       const customFields = (existingReservation.custom_fields as Record<string, unknown>) ?? {}
@@ -149,7 +160,7 @@ export function HourlyDialog() {
   }, [watchChannel, getDefaultPaymentType])
 
   const handleSubmit = form.handleSubmit(async (data) => {
-    const roomId = isEditing ? existingReservation!.room_id : selectedRoomId
+    const roomId = effectiveRoomId
     if (!roomId) {
       toast.error('객실이 선택되지 않았습니다.')
       return
@@ -237,11 +248,29 @@ export function HourlyDialog() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>객실</Label>
-                <div className="flex h-9 w-full items-center rounded-md border bg-muted px-3 text-sm">
-                  {selectedRoom
-                    ? `[${selectedRoom.roomType?.name}] ${selectedRoom.room.room_number}호`
-                    : '-'}
-                </div>
+                {hasPreselectedRoom ? (
+                  <div className="flex h-9 w-full items-center rounded-md border bg-muted px-3 text-sm">
+                    {selectedRoom
+                      ? `[${selectedRoom.roomType?.name}] ${selectedRoom.room.room_number}호`
+                      : '-'}
+                  </div>
+                ) : (
+                  <Select value={manualRoomId ?? ''} onValueChange={setManualRoomId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="객실 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roomTypes.map((rt) => {
+                        const typeRooms = rooms.filter((r) => r.room_type_id === rt.id)
+                        return typeRooms.map((r) => (
+                          <SelectItem key={r.id} value={r.id}>
+                            [{rt.name}] {r.room_number}호
+                          </SelectItem>
+                        ))
+                      })}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>이용일</Label>

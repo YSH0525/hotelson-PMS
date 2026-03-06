@@ -8,8 +8,6 @@ import { useReactToPrint } from 'react-to-print'
 import * as XLSX from 'xlsx'
 import { Header } from '@/components/layout/header'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { CurrencyInput } from '@/components/ui/currency-input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -22,155 +20,39 @@ import {
   TableRow,
   TableFooter,
 } from '@/components/ui/table'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { CalendarDays, Printer, Download, Plus, DoorOpen, DoorClosed, Check, X } from 'lucide-react'
+import { CalendarDays, Printer, Download, Plus, DoorOpen, DoorClosed } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
-import { RESERVATION_STATUS, ENTRY_TYPE, REVENUE_CATEGORIES, PAYMENT_TYPES } from '@/lib/constants'
+import { RESERVATION_STATUS, ENTRY_TYPE, REVENUE_CATEGORIES } from '@/lib/constants'
 import { useChannelOptions } from '@/hooks/use-channel-options'
 import { useUIStore } from '@/stores/use-ui-store'
 import { useTimelineStore } from '@/stores/use-timeline-store'
-import { useCreateReservation, useUpdateReservation } from '@/hooks/use-reservations'
+import { useUpdateReservation } from '@/hooks/use-reservations'
 import { toast } from 'sonner'
 import { ReservationDialog } from '@/components/reservations/reservation-dialog'
 import { HourlyDialog } from '@/components/reservations/hourly-dialog'
 import { OtherRevenueDialog } from '@/components/reservations/other-revenue-dialog'
-import type { Reservation, RoomType, Room, ReservationInsert } from '@/types/database'
+import type { Reservation, RoomType, Room } from '@/types/database'
 
 export default function DailyReportPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const dateStr = format(selectedDate, 'yyyy-MM-dd')
   const printRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
-  const { openReservationDialog } = useUIStore()
+  const { openReservationDialog, openHourlyDialog, openOtherRevenueDialog } = useUIStore()
   const { setSelectedCell } = useTimelineStore()
   const updateReservation = useUpdateReservation()
-  const { options: channelOptions, getLabel: getChannelLabel, getDefaultPaymentType } = useChannelOptions()
-  const createReservation = useCreateReservation()
+  const { getLabel: getChannelLabel } = useChannelOptions()
 
-  // 대실 인라인 입력 폼 상태
-  const [showHourlyForm, setShowHourlyForm] = useState(false)
-  const [hourlyForm, setHourlyForm] = useState({
-    room_id: '',
-    channel: 'direct',
-    guest_name: '',
-    payment_type: '',
-    total_amount: 0,
-    vehicle: '',
-    memo: '',
-  })
-
-  const resetHourlyForm = () => {
-    setHourlyForm({
-      room_id: '',
-      channel: 'direct',
-      guest_name: '',
-      payment_type: '',
-      total_amount: 0,
-      vehicle: '',
-      memo: '',
-    })
+  const openHourly = () => {
+    setSelectedCell(null, dateStr)
+    openHourlyDialog()
   }
 
-  const handleHourlyChannelChange = (channel: string) => {
-    const defaultPt = getDefaultPaymentType(channel)
-    setHourlyForm((prev) => ({
-      ...prev,
-      channel,
-      ...(defaultPt ? { payment_type: defaultPt } : {}),
-    }))
-  }
-
-  const handleHourlySubmit = async () => {
-    if (!hourlyForm.room_id) { toast.error('호실을 선택하세요.'); return }
-    if (!hourlyForm.guest_name.trim()) { toast.error('이름을 입력하세요.'); return }
-    if (!hourlyForm.payment_type) { toast.error('결제구분을 선택하세요.'); return }
-
-    const room = rooms.find((r) => r.id === hourlyForm.room_id)
-    const roomTypeId = room?.room_type_id ?? ''
-
-    try {
-      await createReservation.mutateAsync({
-        entry_type: 'hourly',
-        room_id: hourlyForm.room_id,
-        room_type_id: roomTypeId,
-        check_in_date: dateStr,
-        check_out_date: dateStr,
-        check_in_time: '10:00',
-        check_out_time: '18:00',
-        guest_name: hourlyForm.guest_name,
-        total_amount: hourlyForm.total_amount,
-        status: 'confirmed',
-        custom_fields: {
-          field_channel: hourlyForm.channel,
-          field_payment_type: hourlyForm.payment_type,
-          field_vehicle: hourlyForm.vehicle || undefined,
-        },
-        memo: hourlyForm.memo || null,
-      } as ReservationInsert)
-      toast.success('대실이 등록되었습니다.')
-      resetHourlyForm()
-      setShowHourlyForm(false)
-    } catch {
-      toast.error('대실 등록에 실패했습니다.')
-    }
-  }
-
-  // 기타매출 인라인 입력 폼 상태
-  const [showOtherForm, setShowOtherForm] = useState(false)
-  const [otherForm, setOtherForm] = useState({
-    room_id: '',
-    revenue_category: '',
-    guest_name: '',
-    total_amount: 0,
-    memo: '',
-  })
-
-  const resetOtherForm = () => {
-    setOtherForm({
-      room_id: '',
-      revenue_category: '',
-      guest_name: '',
-      total_amount: 0,
-      memo: '',
-    })
-  }
-
-  const handleOtherSubmit = async () => {
-    if (!otherForm.room_id) { toast.error('호실을 선택하세요.'); return }
-    if (!otherForm.revenue_category) { toast.error('카테고리를 선택하세요.'); return }
-    if (!otherForm.guest_name.trim()) { toast.error('내역을 입력하세요.'); return }
-
-    const room = rooms.find((r) => r.id === otherForm.room_id)
-    const roomTypeId = room?.room_type_id ?? ''
-
-    try {
-      await createReservation.mutateAsync({
-        entry_type: 'other_revenue',
-        room_id: otherForm.room_id,
-        room_type_id: roomTypeId,
-        check_in_date: dateStr,
-        check_out_date: dateStr,
-        guest_name: otherForm.guest_name,
-        total_amount: otherForm.total_amount,
-        revenue_category: otherForm.revenue_category,
-        status: 'confirmed',
-        memo: otherForm.memo || null,
-        custom_fields: {},
-      } as ReservationInsert)
-      toast.success('기타매출이 등록되었습니다.')
-      resetOtherForm()
-      setShowOtherForm(false)
-    } catch {
-      toast.error('기타매출 등록에 실패했습니다.')
-    }
+  const openOtherRevenue = () => {
+    setSelectedCell(null, dateStr)
+    openOtherRevenueDialog()
   }
 
   const handleCheckIn = async (reservationId: string) => {
@@ -557,6 +439,8 @@ export default function DailyReportPage() {
             </CardContent>
           </Card>
 
+          {/* 대실 + 기타매출 좌우 배치 */}
+          <div className="grid grid-cols-2 gap-4">
           {/* 대실 테이블 */}
           <Card>
             <CardHeader className="flex-row items-center justify-between space-y-0">
@@ -567,7 +451,7 @@ export default function DailyReportPage() {
                 size="sm"
                 variant="outline"
                 className="h-7 text-xs print:hidden"
-                onClick={() => { setShowHourlyForm(true); resetHourlyForm() }}
+                onClick={openHourly}
               >
                 <Plus className="h-3 w-3 mr-1" />
                 예약입력
@@ -584,106 +468,12 @@ export default function DailyReportPage() {
                     <TableHead className="text-right w-[90px]">금액</TableHead>
                     <TableHead className="w-[90px]">차량</TableHead>
                     <TableHead className="min-w-[80px]">비고</TableHead>
-                    <TableHead className="w-[50px] print:hidden" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {/* 인라인 입력 폼 */}
-                  {showHourlyForm && (
-                    <TableRow className="bg-primary/5 print:hidden">
-                      <TableCell className="p-1">
-                        <Select value={hourlyForm.room_id} onValueChange={(v) => setHourlyForm((p) => ({ ...p, room_id: v }))}>
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue placeholder="호실" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {rooms.map((r) => (
-                              <SelectItem key={r.id} value={r.id}>{r.room_number}호</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <Select value={hourlyForm.channel} onValueChange={handleHourlyChannelChange}>
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue placeholder="채널" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {channelOptions.map((ch) => (
-                              <SelectItem key={ch.key} value={ch.key}>{ch.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <Input
-                          className="h-7 text-xs"
-                          placeholder="이름"
-                          value={hourlyForm.guest_name}
-                          onChange={(e) => setHourlyForm((p) => ({ ...p, guest_name: e.target.value }))}
-                        />
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <Select value={hourlyForm.payment_type} onValueChange={(v) => setHourlyForm((p) => ({ ...p, payment_type: v }))}>
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue placeholder="결제" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PAYMENT_TYPES.map((pt) => (
-                              <SelectItem key={pt.value} value={pt.value}>{pt.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <CurrencyInput
-                          className="h-7 text-xs text-right"
-                          value={hourlyForm.total_amount}
-                          onChange={(v) => setHourlyForm((p) => ({ ...p, total_amount: v }))}
-                        />
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <Input
-                          className="h-7 text-xs"
-                          placeholder="차량번호"
-                          value={hourlyForm.vehicle}
-                          onChange={(e) => setHourlyForm((p) => ({ ...p, vehicle: e.target.value }))}
-                        />
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <Input
-                          className="h-7 text-xs"
-                          placeholder="비고"
-                          value={hourlyForm.memo}
-                          onChange={(e) => setHourlyForm((p) => ({ ...p, memo: e.target.value }))}
-                        />
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <div className="flex gap-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                            onClick={handleHourlySubmit}
-                            disabled={createReservation.isPending}
-                          >
-                            <Check className="h-3.5 w-3.5 text-primary" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                            onClick={() => setShowHourlyForm(false)}
-                          >
-                            <X className="h-3.5 w-3.5 text-muted-foreground" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {hourlyReservations.length === 0 && !showHourlyForm ? (
+                  {hourlyReservations.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-6">
+                      <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-6">
                         해당 날짜의 대실 내역이 없습니다.
                       </TableCell>
                     </TableRow>
@@ -712,7 +502,6 @@ export default function DailyReportPage() {
                           <TableCell className="text-xs text-muted-foreground">
                             {res.memo ?? '-'}
                           </TableCell>
-                          <TableCell className="print:hidden" />
                         </TableRow>
                       )
                     })
@@ -724,7 +513,7 @@ export default function DailyReportPage() {
                     <TableCell className="text-right font-bold">
                       {hourlyAmount.toLocaleString()}원
                     </TableCell>
-                    <TableCell colSpan={3} />
+                    <TableCell colSpan={2} />
                   </TableRow>
                 </TableFooter>
               </Table>
@@ -741,7 +530,7 @@ export default function DailyReportPage() {
                 size="sm"
                 variant="outline"
                 className="h-7 text-xs print:hidden"
-                onClick={() => { setShowOtherForm(true); resetOtherForm() }}
+                onClick={openOtherRevenue}
               >
                 <Plus className="h-3 w-3 mr-1" />
                 입력
@@ -756,86 +545,12 @@ export default function DailyReportPage() {
                     <TableHead>내역</TableHead>
                     <TableHead className="text-right w-[100px]">금액</TableHead>
                     <TableHead className="min-w-[80px]">메모</TableHead>
-                    <TableHead className="w-[50px] print:hidden" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {/* 인라인 입력 폼 */}
-                  {showOtherForm && (
-                    <TableRow className="bg-primary/5 print:hidden">
-                      <TableCell className="p-1">
-                        <Select value={otherForm.room_id} onValueChange={(v) => setOtherForm((p) => ({ ...p, room_id: v }))}>
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue placeholder="호실" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {rooms.map((r) => (
-                              <SelectItem key={r.id} value={r.id}>{r.room_number}호</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <Select value={otherForm.revenue_category} onValueChange={(v) => setOtherForm((p) => ({ ...p, revenue_category: v }))}>
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue placeholder="카테고리" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {REVENUE_CATEGORIES.map((cat) => (
-                              <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <Input
-                          className="h-7 text-xs"
-                          placeholder="내역"
-                          value={otherForm.guest_name}
-                          onChange={(e) => setOtherForm((p) => ({ ...p, guest_name: e.target.value }))}
-                        />
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <CurrencyInput
-                          className="h-7 text-xs text-right"
-                          value={otherForm.total_amount}
-                          onChange={(v) => setOtherForm((p) => ({ ...p, total_amount: v }))}
-                        />
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <Input
-                          className="h-7 text-xs"
-                          placeholder="메모"
-                          value={otherForm.memo}
-                          onChange={(e) => setOtherForm((p) => ({ ...p, memo: e.target.value }))}
-                        />
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <div className="flex gap-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                            onClick={handleOtherSubmit}
-                            disabled={createReservation.isPending}
-                          >
-                            <Check className="h-3.5 w-3.5 text-primary" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                            onClick={() => setShowOtherForm(false)}
-                          >
-                            <X className="h-3.5 w-3.5 text-muted-foreground" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {otherRevenueEntries.length === 0 && !showOtherForm ? (
+                  {otherRevenueEntries.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-6">
+                      <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-6">
                         해당 날짜의 기타매출 내역이 없습니다.
                       </TableCell>
                     </TableRow>
@@ -859,7 +574,6 @@ export default function DailyReportPage() {
                           <TableCell className="text-xs text-muted-foreground">
                             {res.memo ?? '-'}
                           </TableCell>
-                          <TableCell className="print:hidden" />
                         </TableRow>
                       )
                     })
@@ -871,12 +585,13 @@ export default function DailyReportPage() {
                     <TableCell className="text-right font-bold">
                       {otherRevenueAmount.toLocaleString()}원
                     </TableCell>
-                    <TableCell colSpan={2} />
+                    <TableCell />
                   </TableRow>
                 </TableFooter>
               </Table>
             </CardContent>
           </Card>
+          </div>
         </div>
       </div>
       <ReservationDialog />
