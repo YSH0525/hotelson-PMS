@@ -26,7 +26,7 @@ export function HotelNameLed({ name }: HotelNameLedProps) {
         e.stopPropagation()
         cycleLedStyle()
       }}
-      className="relative overflow-hidden rounded bg-gray-900 px-2 py-1 min-w-0 flex-1 cursor-pointer"
+      className="relative overflow-hidden rounded bg-gray-900 px-2 py-1 min-w-0 w-fit mx-auto cursor-pointer"
       title={`LED 스타일: ${STYLE_LABELS[ledStyle]} (클릭하여 변경)`}
     >
       {ledStyle === 'marquee' && <MarqueeStyle name={name} />}
