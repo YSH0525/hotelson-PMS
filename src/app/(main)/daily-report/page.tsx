@@ -557,6 +557,8 @@ export default function DailyReportPage() {
             </CardContent>
           </Card>
 
+          {/* 대실 + 기타매출 좌우 배치 */}
+          <div className="grid grid-cols-2 gap-4">
           {/* 대실 테이블 */}
           <Card>
             <CardHeader className="flex-row items-center justify-between space-y-0">
@@ -877,6 +879,7 @@ export default function DailyReportPage() {
               </Table>
             </CardContent>
           </Card>
+          </div>
         </div>
       </div>
       <ReservationDialog />
