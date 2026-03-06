@@ -44,13 +44,13 @@ import type { ReservationInsert } from '@/types/database'
 import { PAYMENT_TYPES } from '@/lib/constants'
 
 const hourlySchema = z.object({
-  check_in_time: z.string().min(1, '입실시간을 입력하세요'),
-  check_out_time: z.string().min(1, '퇴실시간을 입력하세요'),
-  guest_name: z.string().min(1, '이용자명을 입력하세요'),
-  guest_phone: z.string().optional(),
-  total_amount: z.number().min(0, '금액을 입력하세요'),
-  payment_type: z.string().min(1, '결제구분을 선택하세요'),
+  check_in_time: z.string(),
+  check_out_time: z.string(),
   reservation_channel: z.string().optional(),
+  guest_name: z.string().min(1, '이름을 입력하세요'),
+  payment_type: z.string().min(1, '결제구분을 선택하세요'),
+  total_amount: z.number().min(0, '금액을 입력하세요'),
+  vehicle: z.string().optional(),
   memo: z.string().optional(),
 })
 
@@ -100,11 +100,11 @@ export function HourlyDialog() {
     defaultValues: {
       check_in_time: '10:00',
       check_out_time: '18:00',
-      guest_name: '',
-      guest_phone: '',
-      total_amount: 0,
-      payment_type: '',
       reservation_channel: 'direct',
+      guest_name: '',
+      payment_type: '',
+      total_amount: 0,
+      vehicle: '',
       memo: '',
     },
   })
@@ -118,22 +118,22 @@ export function HourlyDialog() {
       form.reset({
         check_in_time: existingReservation.check_in_time ?? '10:00',
         check_out_time: existingReservation.check_out_time ?? '18:00',
-        guest_name: existingReservation.guest_name,
-        guest_phone: existingReservation.guest_phone ?? '',
-        total_amount: existingReservation.total_amount,
-        payment_type: (customFields.field_payment_type as string) ?? '',
         reservation_channel: (customFields.field_channel as string) ?? 'direct',
+        guest_name: existingReservation.guest_name,
+        payment_type: (customFields.field_payment_type as string) ?? '',
+        total_amount: existingReservation.total_amount,
+        vehicle: (customFields.field_vehicle as string) ?? '',
         memo: existingReservation.memo ?? '',
       })
     } else {
       form.reset({
         check_in_time: '10:00',
         check_out_time: '18:00',
-        guest_name: '',
-        guest_phone: '',
-        total_amount: 0,
-        payment_type: '',
         reservation_channel: 'direct',
+        guest_name: '',
+        payment_type: '',
+        total_amount: 0,
+        vehicle: '',
         memo: '',
       })
     }
@@ -160,6 +160,12 @@ export function HourlyDialog() {
     const date = displayDate
 
     try {
+      const customFields = {
+        field_channel: data.reservation_channel || 'direct',
+        field_payment_type: data.payment_type,
+        field_vehicle: data.vehicle || undefined,
+      }
+
       if (isEditing) {
         await updateReservation.mutateAsync({
           id: editingReservationId,
@@ -168,13 +174,12 @@ export function HourlyDialog() {
           room_type_id: roomTypeId,
           check_in_date: date,
           check_out_date: date,
-          check_in_time: data.check_in_time,
-          check_out_time: data.check_out_time,
+          check_in_time: data.check_in_time || '10:00',
+          check_out_time: data.check_out_time || '18:00',
           guest_name: data.guest_name,
-          guest_phone: data.guest_phone || null,
           total_amount: data.total_amount,
           status: 'confirmed',
-          custom_fields: { field_payment_type: data.payment_type, field_channel: data.reservation_channel || 'direct' },
+          custom_fields: customFields,
           memo: data.memo || null,
         })
         toast.success('대실이 수정되었습니다.')
@@ -185,13 +190,12 @@ export function HourlyDialog() {
           room_type_id: roomTypeId,
           check_in_date: date,
           check_out_date: date,
-          check_in_time: data.check_in_time,
-          check_out_time: data.check_out_time,
+          check_in_time: data.check_in_time || '10:00',
+          check_out_time: data.check_out_time || '18:00',
           guest_name: data.guest_name,
-          guest_phone: data.guest_phone || null,
           total_amount: data.total_amount,
           status: 'confirmed',
-          custom_fields: { field_payment_type: data.payment_type, field_channel: data.reservation_channel || 'direct' },
+          custom_fields: customFields,
           memo: data.memo || null,
         }
         await createReservation.mutateAsync(input)
@@ -248,32 +252,28 @@ export function HourlyDialog() {
               </div>
             </div>
 
-            {/* 입실시간 / 퇴실시간 */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* 채널 / 이름 / 결제 */}
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>입실시간</Label>
-                <Input type="time" {...form.register('check_in_time')} />
-                {form.formState.errors.check_in_time && (
-                  <p className="text-sm text-destructive">
-                    {form.formState.errors.check_in_time.message}
-                  </p>
-                )}
+                <Label>채널</Label>
+                <Select
+                  value={form.watch('reservation_channel')}
+                  onValueChange={(v) => form.setValue('reservation_channel', v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="채널 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {channelOptions.map((ch) => (
+                      <SelectItem key={ch.key} value={ch.key}>
+                        {ch.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label>퇴실시간</Label>
-                <Input type="time" {...form.register('check_out_time')} />
-                {form.formState.errors.check_out_time && (
-                  <p className="text-sm text-destructive">
-                    {form.formState.errors.check_out_time.message}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* 이용자명 / 연락처 */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>이용자명</Label>
+                <Label>이름</Label>
                 <Input placeholder="홍길동" {...form.register('guest_name')} />
                 {form.formState.errors.guest_name && (
                   <p className="text-sm text-destructive">
@@ -282,33 +282,13 @@ export function HourlyDialog() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label>연락처</Label>
-                <Input placeholder="010-0000-0000" {...form.register('guest_phone')} />
-              </div>
-            </div>
-
-            {/* 금액 / 결제구분 */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>금액 (원)</Label>
-                <CurrencyInput
-                  value={form.watch('total_amount') || 0}
-                  onChange={(v) => form.setValue('total_amount', v)}
-                />
-                {form.formState.errors.total_amount && (
-                  <p className="text-sm text-destructive">
-                    {form.formState.errors.total_amount.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label>결제구분</Label>
+                <Label>결제</Label>
                 <Select
                   value={form.watch('payment_type')}
                   onValueChange={(v) => form.setValue('payment_type', v)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="결제구분 선택" />
+                    <SelectValue placeholder="결제구분" />
                   </SelectTrigger>
                   <SelectContent>
                     {PAYMENT_TYPES.map((pt) => (
@@ -326,24 +306,32 @@ export function HourlyDialog() {
               </div>
             </div>
 
-            {/* 예약채널 */}
-            <div className="space-y-2">
-              <Label>예약채널</Label>
-              <Select
-                value={form.watch('reservation_channel')}
-                onValueChange={(v) => form.setValue('reservation_channel', v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="예약채널 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {channelOptions.map((ch) => (
-                    <SelectItem key={ch.key} value={ch.key}>
-                      {ch.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* 금액 / 차량 / 비고(이용시간) */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>금액 (원)</Label>
+                <CurrencyInput
+                  value={form.watch('total_amount') || 0}
+                  onChange={(v) => form.setValue('total_amount', v)}
+                />
+                {form.formState.errors.total_amount && (
+                  <p className="text-sm text-destructive">
+                    {form.formState.errors.total_amount.message}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>차량</Label>
+                <Input placeholder="차량번호" {...form.register('vehicle')} />
+              </div>
+              <div className="space-y-2">
+                <Label>비고(이용시간)</Label>
+                <div className="flex items-center gap-1">
+                  <Input type="time" className="text-xs px-1" {...form.register('check_in_time')} />
+                  <span className="text-muted-foreground text-xs">~</span>
+                  <Input type="time" className="text-xs px-1" {...form.register('check_out_time')} />
+                </div>
+              </div>
             </div>
 
             {/* 메모 */}
