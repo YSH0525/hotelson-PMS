@@ -14,7 +14,8 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
-import { extractChannelKey, getChannelLabel, getChannelColor, CHANNEL_KEYS, type ChannelKey } from '@/lib/channels'
+import { extractChannelKey } from '@/lib/channels'
+import { useChannelOptions } from '@/hooks/use-channel-options'
 import { RESERVATION_STATUS } from '@/lib/constants'
 import type { Reservation, Room, RoomType } from '@/types/database'
 
@@ -35,6 +36,7 @@ export function ReservationStatus({
   period,
   referenceDate,
 }: ReservationStatusProps) {
+  const { getLabel: getChannelLabel } = useChannelOptions()
   const todayStr = format(new Date(), 'yyyy-MM-dd')
 
   // 오늘 기준 실시간 데이터 (별도 쿼리)

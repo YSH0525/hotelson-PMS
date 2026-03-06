@@ -18,11 +18,8 @@ import {
   PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
-import {
-  CHANNELS, CHANNEL_KEYS,
-  getChannelLabel, getChannelColor, extractChannelKey,
-  type ChannelKey,
-} from '@/lib/channels'
+import { extractChannelKey } from '@/lib/channels'
+import { useChannelOptions } from '@/hooks/use-channel-options'
 import type { Reservation, Room } from '@/types/database'
 
 // ── 타입 ──
@@ -54,6 +51,8 @@ interface ChannelSummaryItem {
 // ── 컴포넌트 ──
 
 export function ChannelAnalytics({ reservations, cancelledReservations, rooms, period, referenceDate }: ChannelAnalyticsProps) {
+  const { options: channelOptionsList, getLabel: getChannelLabel, getColor: getChannelColor } = useChannelOptions()
+  const channelKeys = useMemo(() => channelOptionsList.map((o) => o.key), [channelOptionsList])
 
   // ── 1. 채널별 집계 ──
   const channelSummary = useMemo<ChannelSummaryItem[]>(() => {
@@ -99,7 +98,7 @@ export function ChannelAnalytics({ reservations, cancelledReservations, rooms, p
         }
       })
       .sort((a, b) => b.revenue - a.revenue)
-  }, [reservations, cancelledReservations])
+  }, [reservations, cancelledReservations, getChannelLabel, getChannelColor])
 
   // ── 2. 활성 채널 키 (데이터에 있는 것만 + 미등록 채널 포함) ──
   const activeChannelKeys = useMemo(() => {
@@ -108,10 +107,10 @@ export function ChannelAnalytics({ reservations, cancelledReservations, rooms, p
       keys.add(extractChannelKey(r.custom_fields as Record<string, unknown>))
     })
     // 등록 채널 먼저, 미등록 채널 후에
-    const registered = CHANNEL_KEYS.filter((k) => keys.has(k))
-    const unregistered = Array.from(keys).filter((k) => !CHANNEL_KEYS.includes(k as ChannelKey))
+    const registered = channelKeys.filter((k) => keys.has(k))
+    const unregistered = Array.from(keys).filter((k) => !channelKeys.includes(k))
     return [...registered, ...unregistered]
-  }, [reservations])
+  }, [reservations, channelKeys])
 
   // ── 3. 채널별 매출 추이 ──
   const channelTrendData = useMemo(() => {

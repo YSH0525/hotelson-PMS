@@ -38,7 +38,7 @@ import {
   useDeleteReservation,
 } from '@/hooks/use-reservations'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
-import { CHANNELS, CHANNEL_KEYS } from '@/lib/channels'
+import { useChannelOptions } from '@/hooks/use-channel-options'
 import type { ReservationInsert } from '@/types/database'
 
 const PAYMENT_TYPES = ['카드', '현금', '계좌이체', '채널결제'] as const
@@ -65,6 +65,7 @@ export function HourlyDialog() {
   const createReservation = useCreateReservation()
   const updateReservation = useUpdateReservation()
   const deleteReservation = useDeleteReservation()
+  const { options: channelOptions } = useChannelOptions()
 
   const [deleteConfirm, setDeleteConfirm] = useState(false)
 
@@ -326,9 +327,9 @@ export function HourlyDialog() {
                   <SelectValue placeholder="예약채널 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CHANNEL_KEYS.map((key) => (
-                    <SelectItem key={key} value={key}>
-                      {CHANNELS[key].label}
+                  {channelOptions.map((ch) => (
+                    <SelectItem key={ch.key} value={ch.key}>
+                      {ch.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
