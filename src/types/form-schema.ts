@@ -4,6 +4,7 @@ export interface FormFieldOption {
   value: string
   color?: string
   sortOrder: number
+  defaultPaymentType?: string
 }
 
 export interface FormFieldDefinition {

@@ -41,7 +41,7 @@ import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { useChannelOptions } from '@/hooks/use-channel-options'
 import type { ReservationInsert } from '@/types/database'
 
-const PAYMENT_TYPES = ['카드', '현금', '계좌이체', '채널결제'] as const
+import { PAYMENT_TYPES } from '@/lib/constants'
 
 const hourlySchema = z.object({
   check_in_time: z.string().min(1, '입실시간을 입력하세요'),
@@ -65,7 +65,7 @@ export function HourlyDialog() {
   const createReservation = useCreateReservation()
   const updateReservation = useUpdateReservation()
   const deleteReservation = useDeleteReservation()
-  const { options: channelOptions } = useChannelOptions()
+  const { options: channelOptions, getDefaultPaymentType } = useChannelOptions()
 
   const [deleteConfirm, setDeleteConfirm] = useState(false)
 
@@ -138,6 +138,16 @@ export function HourlyDialog() {
       })
     }
   }, [hourlyDialogOpen, isEditing, existingReservation])
+
+  // 예약채널 변경 시 기본 결제구분 자동 설정
+  const watchChannel = form.watch('reservation_channel')
+  useEffect(() => {
+    if (!watchChannel) return
+    const defaultPt = getDefaultPaymentType(watchChannel)
+    if (defaultPt) {
+      form.setValue('payment_type', defaultPt)
+    }
+  }, [watchChannel, getDefaultPaymentType])
 
   const handleSubmit = form.handleSubmit(async (data) => {
     const roomId = isEditing ? existingReservation!.room_id : selectedRoomId
@@ -301,9 +311,9 @@ export function HourlyDialog() {
                     <SelectValue placeholder="결제구분 선택" />
                   </SelectTrigger>
                   <SelectContent>
-                    {PAYMENT_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
+                    {PAYMENT_TYPES.map((pt) => (
+                      <SelectItem key={pt.value} value={pt.value}>
+                        {pt.label}
                       </SelectItem>
                     ))}
                   </SelectContent>

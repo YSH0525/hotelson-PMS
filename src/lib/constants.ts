@@ -23,6 +23,13 @@ export const RESERVATION_STATUS = {
   no_show: { label: '노쇼', color: 'bg-orange-500' },
 } as const
 
+export const PAYMENT_TYPES = [
+  { value: '카드', label: '카드' },
+  { value: '현금', label: '현금' },
+  { value: '계좌이체', label: '계좌이체' },
+  { value: '채널결제', label: '채널결제' },
+] as const
+
 export const ROOM_STATUS = {
   available: { label: '사용가능', color: 'bg-green-500' },
   maintenance: { label: '정비중', color: 'bg-yellow-500' },

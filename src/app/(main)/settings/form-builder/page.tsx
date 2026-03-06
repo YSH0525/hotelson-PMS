@@ -28,6 +28,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useDefaultFormSchema } from '@/hooks/use-form-schemas'
 import { DynamicFieldRenderer } from '@/components/form-builder/dynamic-field-renderer'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
+import { PAYMENT_TYPES } from '@/lib/constants'
 import type { FormFieldDefinition, FormFieldOption } from '@/types/form-schema'
 
 const FIELD_TYPES = [
@@ -316,6 +317,7 @@ function FieldEditDialog({
   if (!localField) return null
 
   const isSelectType = localField.fieldType === 'select' || localField.fieldType === 'multi-select'
+  const showPaymentTypeMapping = isSelectType && localField.id === 'field_channel'
 
   const handleAddOption = () => {
     const options = localField.options || []
@@ -470,28 +472,49 @@ function FieldEditDialog({
                 </Button>
               </div>
               {(localField.options || []).map((opt, idx) => (
-                <div key={opt.id} className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground w-4">{idx + 1}</span>
-                  <Input
-                    value={opt.label}
-                    onChange={(e) => handleUpdateOption(idx, { label: e.target.value })}
-                    placeholder="표시명 (예: 야놀자)"
-                    className="flex-1"
-                  />
-                  <Input
-                    value={opt.value}
-                    onChange={(e) => handleUpdateOption(idx, { value: e.target.value })}
-                    placeholder="값 (자동생성)"
-                    className="w-32"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                    onClick={() => handleRemoveOption(idx)}
-                  >
-                    <Trash2 className="h-3 w-3 text-destructive" />
-                  </Button>
+                <div key={opt.id} className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-4">{idx + 1}</span>
+                    <Input
+                      value={opt.label}
+                      onChange={(e) => handleUpdateOption(idx, { label: e.target.value })}
+                      placeholder="표시명 (예: 야놀자)"
+                      className="flex-1"
+                    />
+                    <Input
+                      value={opt.value}
+                      onChange={(e) => handleUpdateOption(idx, { value: e.target.value })}
+                      placeholder="값 (자동생성)"
+                      className="w-32"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => handleRemoveOption(idx)}
+                    >
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                  {showPaymentTypeMapping && (
+                    <div className="flex items-center gap-2 ml-6">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">기본 결제구분:</span>
+                      <Select
+                        value={opt.defaultPaymentType || '_none'}
+                        onValueChange={(v) => handleUpdateOption(idx, { defaultPaymentType: v === '_none' ? undefined : v } as Partial<FormFieldOption>)}
+                      >
+                        <SelectTrigger className="h-7 text-xs w-36">
+                          <SelectValue placeholder="미지정" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_none">미지정</SelectItem>
+                          {PAYMENT_TYPES.map((pt) => (
+                            <SelectItem key={pt.value} value={pt.value}>{pt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               ))}
               {(localField.options || []).length === 0 && (
