@@ -123,6 +123,56 @@ export default function DailyReportPage() {
     }
   }
 
+  // 기타매출 인라인 입력 폼 상태
+  const [showOtherForm, setShowOtherForm] = useState(false)
+  const [otherForm, setOtherForm] = useState({
+    room_id: '',
+    revenue_category: '',
+    guest_name: '',
+    total_amount: 0,
+    memo: '',
+  })
+
+  const resetOtherForm = () => {
+    setOtherForm({
+      room_id: '',
+      revenue_category: '',
+      guest_name: '',
+      total_amount: 0,
+      memo: '',
+    })
+  }
+
+  const handleOtherSubmit = async () => {
+    if (!otherForm.room_id) { toast.error('호실을 선택하세요.'); return }
+    if (!otherForm.revenue_category) { toast.error('카테고리를 선택하세요.'); return }
+    if (!otherForm.guest_name.trim()) { toast.error('내역을 입력하세요.'); return }
+
+    const room = rooms.find((r) => r.id === otherForm.room_id)
+    const roomTypeId = room?.room_type_id ?? ''
+
+    try {
+      await createReservation.mutateAsync({
+        entry_type: 'other_revenue',
+        room_id: otherForm.room_id,
+        room_type_id: roomTypeId,
+        check_in_date: dateStr,
+        check_out_date: dateStr,
+        guest_name: otherForm.guest_name,
+        total_amount: otherForm.total_amount,
+        revenue_category: otherForm.revenue_category,
+        status: 'confirmed',
+        memo: otherForm.memo || null,
+        custom_fields: {},
+      } as ReservationInsert)
+      toast.success('기타매출이 등록되었습니다.')
+      resetOtherForm()
+      setShowOtherForm(false)
+    } catch {
+      toast.error('기타매출 등록에 실패했습니다.')
+    }
+  }
+
   const handleCheckIn = async (reservationId: string) => {
     try {
       await updateReservation.mutateAsync({ id: reservationId, status: 'checked_in' })
@@ -683,28 +733,114 @@ export default function DailyReportPage() {
 
           {/* 기타매출 테이블 */}
           <Card>
-            <CardHeader>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
               <CardTitle className="text-base">
                 {ENTRY_TYPE.other_revenue.icon} {format(selectedDate, 'yyyy년 M월 d일', { locale: ko })} 기타매출
               </CardTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs print:hidden"
+                onClick={() => { setShowOtherForm(true); resetOtherForm() }}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                입력
+              </Button>
             </CardHeader>
             <CardContent>
-              {otherRevenueEntries.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">
-                  해당 날짜의 기타매출 내역이 없습니다.
-                </p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[80px]">호실</TableHead>
-                      <TableHead className="w-[100px]">카테고리</TableHead>
-                      <TableHead>내역</TableHead>
-                      <TableHead className="text-right w-[100px]">금액</TableHead>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[80px]">호실</TableHead>
+                    <TableHead className="w-[100px]">카테고리</TableHead>
+                    <TableHead>내역</TableHead>
+                    <TableHead className="text-right w-[100px]">금액</TableHead>
+                    <TableHead className="min-w-[80px]">메모</TableHead>
+                    <TableHead className="w-[50px] print:hidden" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {/* 인라인 입력 폼 */}
+                  {showOtherForm && (
+                    <TableRow className="bg-primary/5 print:hidden">
+                      <TableCell className="p-1">
+                        <Select value={otherForm.room_id} onValueChange={(v) => setOtherForm((p) => ({ ...p, room_id: v }))}>
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue placeholder="호실" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {rooms.map((r) => (
+                              <SelectItem key={r.id} value={r.id}>{r.room_number}호</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="p-1">
+                        <Select value={otherForm.revenue_category} onValueChange={(v) => setOtherForm((p) => ({ ...p, revenue_category: v }))}>
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue placeholder="카테고리" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {REVENUE_CATEGORIES.map((cat) => (
+                              <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="p-1">
+                        <Input
+                          className="h-7 text-xs"
+                          placeholder="내역"
+                          value={otherForm.guest_name}
+                          onChange={(e) => setOtherForm((p) => ({ ...p, guest_name: e.target.value }))}
+                        />
+                      </TableCell>
+                      <TableCell className="p-1">
+                        <CurrencyInput
+                          className="h-7 text-xs text-right"
+                          value={otherForm.total_amount}
+                          onChange={(v) => setOtherForm((p) => ({ ...p, total_amount: v }))}
+                        />
+                      </TableCell>
+                      <TableCell className="p-1">
+                        <Input
+                          className="h-7 text-xs"
+                          placeholder="메모"
+                          value={otherForm.memo}
+                          onChange={(e) => setOtherForm((p) => ({ ...p, memo: e.target.value }))}
+                        />
+                      </TableCell>
+                      <TableCell className="p-1">
+                        <div className="flex gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={handleOtherSubmit}
+                            disabled={createReservation.isPending}
+                          >
+                            <Check className="h-3.5 w-3.5 text-primary" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => setShowOtherForm(false)}
+                          >
+                            <X className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {otherRevenueEntries.map((res) => {
+                  )}
+                  {otherRevenueEntries.length === 0 && !showOtherForm ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-6">
+                        해당 날짜의 기타매출 내역이 없습니다.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    otherRevenueEntries.map((res) => {
                       const room = rooms.find((r) => r.id === res.room_id)
                       return (
                         <TableRow key={res.id}>
@@ -720,20 +856,25 @@ export default function DailyReportPage() {
                           <TableCell className="text-right font-medium">
                             {res.total_amount.toLocaleString()}
                           </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {res.memo ?? '-'}
+                          </TableCell>
+                          <TableCell className="print:hidden" />
                         </TableRow>
                       )
-                    })}
-                  </TableBody>
-                  <TableFooter>
-                    <TableRow>
-                      <TableCell colSpan={3} className="font-bold">기타매출 합계</TableCell>
-                      <TableCell className="text-right font-bold">
-                        {otherRevenueAmount.toLocaleString()}원
-                      </TableCell>
-                    </TableRow>
-                  </TableFooter>
-                </Table>
-              )}
+                    })
+                  )}
+                </TableBody>
+                <TableFooter>
+                  <TableRow>
+                    <TableCell colSpan={3} className="font-bold">기타매출 합계</TableCell>
+                    <TableCell className="text-right font-bold">
+                      {otherRevenueAmount.toLocaleString()}원
+                    </TableCell>
+                    <TableCell colSpan={2} />
+                  </TableRow>
+                </TableFooter>
+              </Table>
             </CardContent>
           </Card>
         </div>
