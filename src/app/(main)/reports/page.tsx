@@ -19,7 +19,8 @@ import {
 } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
 import { ENTRY_TYPE } from '@/lib/constants'
-import { extractChannelKey, getChannelLabel } from '@/lib/channels'
+import { extractChannelKey } from '@/lib/channels'
+import { useChannelOptions } from '@/hooks/use-channel-options'
 import { ChannelAnalytics } from '@/components/reports/channel-analytics'
 import { ReservationStatus } from '@/components/reports/reservation-status'
 import { RevenueAnalysis } from '@/components/reports/revenue-analysis'
@@ -47,6 +48,7 @@ export default function ReportsPage() {
   const [period, setPeriod] = useState<'daily' | 'monthly' | 'yearly'>('daily')
   const [referenceDate, setReferenceDate] = useState(new Date())
   const supabase = createClient()
+  const { getLabel: getChannelLabel } = useChannelOptions()
 
   // 기간에 따른 조회 범위
   const { startDate, endDate } = useMemo(() => {

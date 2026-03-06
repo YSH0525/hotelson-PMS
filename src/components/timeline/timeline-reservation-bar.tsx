@@ -3,7 +3,8 @@
 import { memo, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { TIMELINE_ZONES, ENTRY_TYPE, RESERVATION_STATUS } from '@/lib/constants'
-import { getChannelLabel, extractChannelKey } from '@/lib/channels'
+import { extractChannelKey } from '@/lib/channels'
+import { useChannelOptions } from '@/hooks/use-channel-options'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { useUIStore } from '@/stores/use-ui-store'
 import { useTimelineStore } from '@/stores/use-timeline-store'
@@ -119,6 +120,7 @@ export const TimelineReservationBar = memo(function TimelineReservationBar({
     )
   }
 
+  const { getLabel: getChannelLabel } = useChannelOptions()
   const channelLabel = getChannelLabel(extractChannelKey(reservation.custom_fields as Record<string, unknown>))
   const rawPaymentType = (reservation.custom_fields as Record<string, unknown>)?.field_payment_type as string ?? ''
   const PAYMENT_LABEL: Record<string, string> = { card: '카드', cash: '현금', transfer: '계좌', channel_pay: '채널' }

@@ -25,7 +25,7 @@ import { CalendarDays, Printer, Download, Plus, DoorOpen, DoorClosed } from 'luc
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { RESERVATION_STATUS, ENTRY_TYPE, REVENUE_CATEGORIES } from '@/lib/constants'
-import { getChannelLabel } from '@/lib/channels'
+import { useChannelOptions } from '@/hooks/use-channel-options'
 import { useUIStore } from '@/stores/use-ui-store'
 import { useTimelineStore } from '@/stores/use-timeline-store'
 import { useUpdateReservation } from '@/hooks/use-reservations'
@@ -43,6 +43,7 @@ export default function DailyReportPage() {
   const { openReservationDialog } = useUIStore()
   const { setSelectedCell } = useTimelineStore()
   const updateReservation = useUpdateReservation()
+  const { getLabel: getChannelLabel } = useChannelOptions()
 
   const handleCheckIn = async (reservationId: string) => {
     try {
