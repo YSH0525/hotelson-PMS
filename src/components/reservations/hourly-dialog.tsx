@@ -18,7 +18,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -325,19 +324,9 @@ export function HourlyDialog() {
                 <Input placeholder="차량번호" {...form.register('vehicle')} />
               </div>
               <div className="space-y-2">
-                <Label>비고(이용시간)</Label>
-                <div className="flex items-center gap-1">
-                  <Input type="time" className="text-xs px-1" {...form.register('check_in_time')} />
-                  <span className="text-muted-foreground text-xs">~</span>
-                  <Input type="time" className="text-xs px-1" {...form.register('check_out_time')} />
-                </div>
+                <Label>비고</Label>
+                <Input placeholder="비고" {...form.register('memo')} />
               </div>
-            </div>
-
-            {/* 메모 */}
-            <div className="space-y-2">
-              <Label>메모</Label>
-              <Textarea placeholder="특이사항을 기록하세요" {...form.register('memo')} />
             </div>
 
             <DialogFooter className="gap-2">
