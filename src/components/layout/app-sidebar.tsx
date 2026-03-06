@@ -77,8 +77,8 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-4 py-3">
-        <Link href="/timeline" className="flex flex-col items-center gap-1">
-          <Logo variant="compact" className="h-8 shrink-0" />
+        <Link href="/timeline" className="flex flex-col items-start gap-1">
+          <Logo variant="compact" className="h-7 shrink-0" />
         </Link>
         {settings?.hotel_name && (
           <HotelNameLed name={settings.hotel_name} />
