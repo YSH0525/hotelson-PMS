@@ -80,16 +80,18 @@ export function OtherRevenueDialog() {
     return room?.room_type_id ?? ''
   }
 
-  // 선택된 객실의 표시명
+  // 타임라인에서 호실이 이미 선택되어 있는지 여부
+  const hasPreselectedRoom = !!(isEditing ? existingReservation?.room_id : selectedRoomId)
+
+  // 선택된 객실의 표시명 (pre-selected 경우에만 사용)
   const roomDisplayName = useMemo(() => {
-    if (!selectedRoomId && !editingReservationId) return ''
     const roomId = isEditing ? existingReservation?.room_id : selectedRoomId
     if (!roomId) return ''
     const room = rooms.find((r) => r.id === roomId)
     if (!room) return ''
     const roomType = roomTypes.find((rt) => rt.id === room.room_type_id)
     return roomType ? `[${roomType.name}] ${room.room_number}호` : `${room.room_number}호`
-  }, [selectedRoomId, editingReservationId, existingReservation, rooms, roomTypes, isEditing])
+  }, [selectedRoomId, existingReservation, rooms, roomTypes, isEditing])
 
   // 날짜 표시
   const dateDisplay = useMemo(() => {
@@ -210,9 +212,34 @@ export function OtherRevenueDialog() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>객실</Label>
-                <div className="h-10 px-3 py-2 rounded-md border bg-muted text-sm flex items-center">
-                  {roomDisplayName || '-'}
-                </div>
+                {hasPreselectedRoom ? (
+                  <div className="h-10 px-3 py-2 rounded-md border bg-muted text-sm flex items-center">
+                    {roomDisplayName || '-'}
+                  </div>
+                ) : (
+                  <Select
+                    value={form.watch('room_id')}
+                    onValueChange={(v) => {
+                      const room = rooms.find((r) => r.id === v)
+                      form.setValue('room_id', v)
+                      form.setValue('room_type_id', room?.room_type_id ?? '')
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="객실 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roomTypes.map((rt) => {
+                        const typeRooms = rooms.filter((r) => r.room_type_id === rt.id)
+                        return typeRooms.map((r) => (
+                          <SelectItem key={r.id} value={r.id}>
+                            [{rt.name}] {r.room_number}호
+                          </SelectItem>
+                        ))
+                      })}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>날짜</Label>
