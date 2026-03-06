@@ -330,7 +330,15 @@ export default function DailyReportPage() {
                       const customFields = (reservation?.custom_fields ?? {}) as Record<string, unknown>
                       const isCheckedIn = reservation?.status === 'checked_in' || reservation?.status === 'checked_out'
                       return (
-                        <TableRow key={room.id} className={!reservation ? 'text-muted-foreground' : ''}>
+                        <TableRow
+                          key={room.id}
+                          className={cn(
+                            !reservation && 'text-muted-foreground',
+                            reservation?.status === 'confirmed' && 'bg-amber-50 dark:bg-amber-950/20',
+                            reservation?.status === 'checked_in' && 'bg-blue-50 dark:bg-blue-950/20',
+                            reservation?.status === 'checked_out' && 'bg-gray-50 dark:bg-gray-950/20',
+                          )}
+                        >
                           {/* 체크인 아이콘 */}
                           <TableCell className="text-center">
                             {!reservation ? null : isCheckedIn ? (
@@ -341,7 +349,7 @@ export default function DailyReportPage() {
                                 className="inline-flex items-center justify-center hover:text-primary transition-colors"
                                 title="체크인"
                               >
-                                <DoorOpen className="h-4 w-4 text-amber-500 hover:text-primary" />
+                                <DoorOpen className="h-4 w-4 text-amber-500 hover:text-primary animate-pulse" />
                               </button>
                             )}
                           </TableCell>
