@@ -26,7 +26,7 @@ export function HotelNameLed({ name }: HotelNameLedProps) {
         e.stopPropagation()
         cycleLedStyle()
       }}
-      className="relative overflow-hidden rounded bg-gray-900 px-1.5 py-0.5 min-w-0 flex-1 cursor-pointer"
+      className="relative overflow-hidden rounded bg-gray-900 px-2 py-1 min-w-0 flex-1 cursor-pointer"
       title={`LED 스타일: ${STYLE_LABELS[ledStyle]} (클릭하여 변경)`}
     >
       {ledStyle === 'marquee' && <MarqueeStyle name={name} />}
@@ -39,7 +39,7 @@ export function HotelNameLed({ name }: HotelNameLedProps) {
 function MarqueeStyle({ name }: { name: string }) {
   return (
     <div className="overflow-hidden whitespace-nowrap">
-      <span className="inline-block text-xs font-bold text-amber-400 animate-marquee-scroll">
+      <span className="inline-block text-sm font-bold text-amber-400 animate-marquee-scroll">
         {name}
       </span>
     </div>
@@ -49,7 +49,7 @@ function MarqueeStyle({ name }: { name: string }) {
 function NeonStyle({ name }: { name: string }) {
   return (
     <div className="text-center">
-      <span className="text-xs font-bold text-cyan-400 animate-neon-pulse">
+      <span className="text-sm font-bold text-cyan-400 animate-neon-pulse">
         {name}
       </span>
     </div>
@@ -90,12 +90,12 @@ function TypewriterStyle({ name }: { name: string }) {
   return (
     <div className="text-center whitespace-nowrap">
       <span
-        className="text-xs font-bold text-amber-300"
+        className="text-sm font-bold text-amber-300"
         style={{ fontFamily: '"Courier New", monospace' }}
       >
         {name.slice(0, displayedLen)}
       </span>
-      <span className="inline-block w-[2px] h-[12px] bg-amber-300 align-middle ml-[1px] animate-typewriter-cursor" />
+      <span className="inline-block w-[2px] h-[14px] bg-amber-300 align-middle ml-[1px] animate-typewriter-cursor" />
     </div>
   )
 }
