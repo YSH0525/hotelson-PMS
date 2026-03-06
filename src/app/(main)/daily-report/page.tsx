@@ -8,6 +8,8 @@ import { useReactToPrint } from 'react-to-print'
 import * as XLSX from 'xlsx'
 import { Header } from '@/components/layout/header'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -20,20 +22,27 @@ import {
   TableRow,
   TableFooter,
 } from '@/components/ui/table'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { CalendarDays, Printer, Download, Plus, DoorOpen, DoorClosed } from 'lucide-react'
+import { CalendarDays, Printer, Download, Plus, DoorOpen, DoorClosed, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
-import { RESERVATION_STATUS, ENTRY_TYPE, REVENUE_CATEGORIES } from '@/lib/constants'
+import { RESERVATION_STATUS, ENTRY_TYPE, REVENUE_CATEGORIES, PAYMENT_TYPES } from '@/lib/constants'
 import { useChannelOptions } from '@/hooks/use-channel-options'
 import { useUIStore } from '@/stores/use-ui-store'
 import { useTimelineStore } from '@/stores/use-timeline-store'
-import { useUpdateReservation } from '@/hooks/use-reservations'
+import { useCreateReservation, useUpdateReservation } from '@/hooks/use-reservations'
 import { toast } from 'sonner'
 import { ReservationDialog } from '@/components/reservations/reservation-dialog'
 import { HourlyDialog } from '@/components/reservations/hourly-dialog'
 import { OtherRevenueDialog } from '@/components/reservations/other-revenue-dialog'
-import type { Reservation, RoomType, Room } from '@/types/database'
+import type { Reservation, RoomType, Room, ReservationInsert } from '@/types/database'
 
 export default function DailyReportPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
@@ -43,7 +52,76 @@ export default function DailyReportPage() {
   const { openReservationDialog } = useUIStore()
   const { setSelectedCell } = useTimelineStore()
   const updateReservation = useUpdateReservation()
-  const { getLabel: getChannelLabel } = useChannelOptions()
+  const { options: channelOptions, getLabel: getChannelLabel, getDefaultPaymentType } = useChannelOptions()
+  const createReservation = useCreateReservation()
+
+  // 대실 인라인 입력 폼 상태
+  const [showHourlyForm, setShowHourlyForm] = useState(false)
+  const [hourlyForm, setHourlyForm] = useState({
+    room_id: '',
+    channel: 'direct',
+    guest_name: '',
+    payment_type: '',
+    total_amount: 0,
+    vehicle: '',
+    memo: '',
+  })
+
+  const resetHourlyForm = () => {
+    setHourlyForm({
+      room_id: '',
+      channel: 'direct',
+      guest_name: '',
+      payment_type: '',
+      total_amount: 0,
+      vehicle: '',
+      memo: '',
+    })
+  }
+
+  const handleHourlyChannelChange = (channel: string) => {
+    const defaultPt = getDefaultPaymentType(channel)
+    setHourlyForm((prev) => ({
+      ...prev,
+      channel,
+      ...(defaultPt ? { payment_type: defaultPt } : {}),
+    }))
+  }
+
+  const handleHourlySubmit = async () => {
+    if (!hourlyForm.room_id) { toast.error('호실을 선택하세요.'); return }
+    if (!hourlyForm.guest_name.trim()) { toast.error('이름을 입력하세요.'); return }
+    if (!hourlyForm.payment_type) { toast.error('결제구분을 선택하세요.'); return }
+
+    const room = rooms.find((r) => r.id === hourlyForm.room_id)
+    const roomTypeId = room?.room_type_id ?? ''
+
+    try {
+      await createReservation.mutateAsync({
+        entry_type: 'hourly',
+        room_id: hourlyForm.room_id,
+        room_type_id: roomTypeId,
+        check_in_date: dateStr,
+        check_out_date: dateStr,
+        check_in_time: '10:00',
+        check_out_time: '18:00',
+        guest_name: hourlyForm.guest_name,
+        total_amount: hourlyForm.total_amount,
+        status: 'confirmed',
+        custom_fields: {
+          field_channel: hourlyForm.channel,
+          field_payment_type: hourlyForm.payment_type,
+          field_vehicle: hourlyForm.vehicle || undefined,
+        },
+        memo: hourlyForm.memo || null,
+      } as ReservationInsert)
+      toast.success('대실이 등록되었습니다.')
+      resetHourlyForm()
+      setShowHourlyForm(false)
+    } catch {
+      toast.error('대실 등록에 실패했습니다.')
+    }
+  }
 
   const handleCheckIn = async (reservationId: string) => {
     try {
@@ -177,15 +255,15 @@ export default function DailyReportPage() {
     // 대실 시트
     const hourlyRows = hourlyReservations.map((res) => {
       const room = rooms.find((r) => r.id === res.room_id)
+      const cf = (res.custom_fields ?? {}) as Record<string, unknown>
       return {
         '호실': room?.room_number ? `${room.room_number}호` : '',
-        '이용자': res.guest_name,
-        '연락처': res.guest_phone ?? '',
-        '입실시간': res.check_in_time ?? '',
-        '퇴실시간': res.check_out_time ?? '',
-        '상태': RESERVATION_STATUS[res.status]?.label ?? res.status,
+        '채널': getChannelLabel(String(cf['field_channel'] ?? '')),
+        '이름': res.guest_name,
+        '결제': String(cf['field_payment_type'] ?? ''),
         '금액': res.total_amount,
-        '메모': res.memo ?? '',
+        '차량': String(cf['field_vehicle'] ?? ''),
+        '비고': res.memo ?? '',
       }
     })
 
@@ -431,61 +509,175 @@ export default function DailyReportPage() {
 
           {/* 대실 테이블 */}
           <Card>
-            <CardHeader>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
               <CardTitle className="text-base">
                 {ENTRY_TYPE.hourly.icon} {format(selectedDate, 'yyyy년 M월 d일', { locale: ko })} 대실
               </CardTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs print:hidden"
+                onClick={() => { setShowHourlyForm(true); resetHourlyForm() }}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                예약입력
+              </Button>
             </CardHeader>
             <CardContent>
-              {hourlyReservations.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">
-                  해당 날짜의 대실 내역이 없습니다.
-                </p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[80px]">호실</TableHead>
-                      <TableHead>이용자</TableHead>
-                      <TableHead className="w-[120px]">시간</TableHead>
-                      <TableHead className="w-[80px]">상태</TableHead>
-                      <TableHead className="text-right w-[100px]">금액</TableHead>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[70px]">호실</TableHead>
+                    <TableHead className="w-[80px]">채널</TableHead>
+                    <TableHead className="w-[80px]">이름</TableHead>
+                    <TableHead className="w-[70px]">결제</TableHead>
+                    <TableHead className="text-right w-[90px]">금액</TableHead>
+                    <TableHead className="w-[90px]">차량</TableHead>
+                    <TableHead className="min-w-[80px]">비고</TableHead>
+                    <TableHead className="w-[50px] print:hidden" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {/* 인라인 입력 폼 */}
+                  {showHourlyForm && (
+                    <TableRow className="bg-primary/5 print:hidden">
+                      <TableCell className="p-1">
+                        <Select value={hourlyForm.room_id} onValueChange={(v) => setHourlyForm((p) => ({ ...p, room_id: v }))}>
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue placeholder="호실" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {rooms.map((r) => (
+                              <SelectItem key={r.id} value={r.id}>{r.room_number}호</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="p-1">
+                        <Select value={hourlyForm.channel} onValueChange={handleHourlyChannelChange}>
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue placeholder="채널" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {channelOptions.map((ch) => (
+                              <SelectItem key={ch.key} value={ch.key}>{ch.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="p-1">
+                        <Input
+                          className="h-7 text-xs"
+                          placeholder="이름"
+                          value={hourlyForm.guest_name}
+                          onChange={(e) => setHourlyForm((p) => ({ ...p, guest_name: e.target.value }))}
+                        />
+                      </TableCell>
+                      <TableCell className="p-1">
+                        <Select value={hourlyForm.payment_type} onValueChange={(v) => setHourlyForm((p) => ({ ...p, payment_type: v }))}>
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue placeholder="결제" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PAYMENT_TYPES.map((pt) => (
+                              <SelectItem key={pt.value} value={pt.value}>{pt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="p-1">
+                        <CurrencyInput
+                          className="h-7 text-xs text-right"
+                          value={hourlyForm.total_amount}
+                          onChange={(v) => setHourlyForm((p) => ({ ...p, total_amount: v }))}
+                        />
+                      </TableCell>
+                      <TableCell className="p-1">
+                        <Input
+                          className="h-7 text-xs"
+                          placeholder="차량번호"
+                          value={hourlyForm.vehicle}
+                          onChange={(e) => setHourlyForm((p) => ({ ...p, vehicle: e.target.value }))}
+                        />
+                      </TableCell>
+                      <TableCell className="p-1">
+                        <Input
+                          className="h-7 text-xs"
+                          placeholder="비고"
+                          value={hourlyForm.memo}
+                          onChange={(e) => setHourlyForm((p) => ({ ...p, memo: e.target.value }))}
+                        />
+                      </TableCell>
+                      <TableCell className="p-1">
+                        <div className="flex gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={handleHourlySubmit}
+                            disabled={createReservation.isPending}
+                          >
+                            <Check className="h-3.5 w-3.5 text-primary" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => setShowHourlyForm(false)}
+                          >
+                            <X className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {hourlyReservations.map((res) => {
+                  )}
+                  {hourlyReservations.length === 0 && !showHourlyForm ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-6">
+                        해당 날짜의 대실 내역이 없습니다.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    hourlyReservations.map((res) => {
                       const room = rooms.find((r) => r.id === res.room_id)
+                      const cf = (res.custom_fields ?? {}) as Record<string, unknown>
                       return (
                         <TableRow key={res.id}>
                           <TableCell className="font-medium">
                             {room?.room_number ? `${room.room_number}호` : '-'}
                           </TableCell>
+                          <TableCell className="text-xs">
+                            {getChannelLabel(String(cf['field_channel'] ?? ''))}
+                          </TableCell>
                           <TableCell>{res.guest_name}</TableCell>
                           <TableCell className="text-xs">
-                            {res.check_in_time ?? '-'} ~ {res.check_out_time ?? '-'}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-[10px]">
-                              {RESERVATION_STATUS[res.status]?.label}
-                            </Badge>
+                            {String(cf['field_payment_type'] ?? '-')}
                           </TableCell>
                           <TableCell className="text-right font-medium">
                             {res.total_amount.toLocaleString()}
                           </TableCell>
+                          <TableCell className="text-xs">
+                            {String(cf['field_vehicle'] ?? '-')}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {res.memo ?? '-'}
+                          </TableCell>
+                          <TableCell className="print:hidden" />
                         </TableRow>
                       )
-                    })}
-                  </TableBody>
-                  <TableFooter>
-                    <TableRow>
-                      <TableCell colSpan={4} className="font-bold">대실 합계</TableCell>
-                      <TableCell className="text-right font-bold">
-                        {hourlyAmount.toLocaleString()}원
-                      </TableCell>
-                    </TableRow>
-                  </TableFooter>
-                </Table>
-              )}
+                    })
+                  )}
+                </TableBody>
+                <TableFooter>
+                  <TableRow>
+                    <TableCell colSpan={4} className="font-bold">대실 합계</TableCell>
+                    <TableCell className="text-right font-bold">
+                      {hourlyAmount.toLocaleString()}원
+                    </TableCell>
+                    <TableCell colSpan={3} />
+                  </TableRow>
+                </TableFooter>
+              </Table>
             </CardContent>
           </Card>
 
