@@ -90,6 +90,21 @@ CREATE TABLE IF NOT EXISTS payments (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- 현금 시재 관리
+CREATE TABLE IF NOT EXISTS cash_ledger (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entry_date DATE NOT NULL,
+  entry_type TEXT NOT NULL CHECK (entry_type IN ('opening', 'income', 'expense', 'closing')),
+  category TEXT NOT NULL,
+  description TEXT,
+  amount INTEGER NOT NULL DEFAULT 0,
+  reservation_id UUID REFERENCES reservations(id) ON DELETE SET NULL,
+  memo TEXT,
+  created_by UUID REFERENCES profiles(id),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- 동적 폼 스키마
 CREATE TABLE IF NOT EXISTS form_schemas (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -111,6 +126,8 @@ CREATE INDEX IF NOT EXISTS idx_reservations_room_dates ON reservations(room_id, 
 CREATE INDEX IF NOT EXISTS idx_reservations_dates ON reservations(check_in_date, check_out_date);
 CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status, check_in_date);
 CREATE INDEX IF NOT EXISTS idx_payments_reservation ON payments(reservation_id);
+CREATE INDEX IF NOT EXISTS idx_cash_ledger_date ON cash_ledger(entry_date);
+CREATE INDEX IF NOT EXISTS idx_cash_ledger_type ON cash_ledger(entry_type, entry_date);
 
 -- =============================================
 -- Row Level Security (RLS)
@@ -122,6 +139,7 @@ ALTER TABLE rooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE form_schemas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cash_ledger ENABLE ROW LEVEL SECURITY;
 
 -- 인증된 사용자 전체 접근 정책
 CREATE POLICY "authenticated_full_access" ON hotel_settings FOR ALL USING (auth.role() = 'authenticated');
@@ -131,6 +149,7 @@ CREATE POLICY "authenticated_full_access" ON rooms FOR ALL USING (auth.role() = 
 CREATE POLICY "authenticated_full_access" ON reservations FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "authenticated_full_access" ON payments FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "authenticated_full_access" ON form_schemas FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "authenticated_full_access" ON cash_ledger FOR ALL USING (auth.role() = 'authenticated');
 
 -- =============================================
 -- updated_at 자동 업데이트 트리거
@@ -161,6 +180,10 @@ CREATE TRIGGER update_reservations_updated_at
 
 CREATE TRIGGER update_form_schemas_updated_at
   BEFORE UPDATE ON form_schemas
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_cash_ledger_updated_at
+  BEFORE UPDATE ON cash_ledger
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =============================================

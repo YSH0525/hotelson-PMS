@@ -12,6 +12,7 @@ import {
   LogOut,
   FormInput,
   Package,
+  Banknote,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -38,6 +39,7 @@ const mainMenuItems = [
   { title: '타임라인', url: '/timeline', icon: CalendarRange },
   { title: '예약 목록', url: '/reservations', icon: ClipboardList },
   { title: '당일판매일지', url: '/daily-report', icon: FileText },
+  { title: '현금 시재', url: '/cash-management', icon: Banknote },
   { title: '보고서', url: '/reports', icon: BarChart3 },
 ]
 

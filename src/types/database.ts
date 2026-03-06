@@ -260,6 +260,53 @@ export interface Database {
           }
         ]
       }
+      cash_ledger: {
+        Row: {
+          id: string
+          entry_date: string
+          entry_type: 'opening' | 'income' | 'expense' | 'closing'
+          category: string
+          description: string | null
+          amount: number
+          reservation_id: string | null
+          memo: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          entry_date: string
+          entry_type: 'opening' | 'income' | 'expense' | 'closing'
+          category: string
+          description?: string | null
+          amount: number
+          reservation_id?: string | null
+          memo?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          entry_date?: string
+          entry_type?: 'opening' | 'income' | 'expense' | 'closing'
+          category?: string
+          description?: string | null
+          amount?: number
+          reservation_id?: string | null
+          memo?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'cash_ledger_reservation_id_fkey'
+            columns: ['reservation_id']
+            isOneToOne: false
+            referencedRelation: 'reservations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       form_schemas: {
         Row: {
           id: string
@@ -315,3 +362,5 @@ export type FormSchema = Database['public']['Tables']['form_schemas']['Row']
 export type FormSchemaInsert = Database['public']['Tables']['form_schemas']['Insert']
 export type Profile = Database['public']['Tables']['profiles']['Row']
 export type HotelSettings = Database['public']['Tables']['hotel_settings']['Row']
+export type CashLedger = Database['public']['Tables']['cash_ledger']['Row']
+export type CashLedgerInsert = Database['public']['Tables']['cash_ledger']['Insert']
