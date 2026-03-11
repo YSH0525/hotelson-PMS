@@ -4,8 +4,15 @@ import type { OtaReservation, OtaScraper } from './types'
  * Agoda YCS (Yield Connect System) 스크래퍼
  * ycs.agoda.com - Agoda 파트너 사이트
  *
- * Agoda YCS는 영문 기반 인터페이스이며, 예약 목록은 테이블 형태로 표시
- * Booking ID, Guest Name, Check-in, Check-out, Room Type, Status, Revenue 등
+ * 실제 DOM 구조: 카드 형태 텍스트 (테이블 아님)
+ * 각 예약 블록:
+ *   확정된 예약 / 취소된 예약
+ *   게스트이름
+ *   ID: 숫자
+ *   YYYY년 M월 D일 - YYYY년 M월 D일 • N박
+ *   객실타입명 (객실ID)
+ *   성인 N명
+ *   아고다에 요금 지불
  */
 export const agodaScraper: OtaScraper = {
   channel: 'agoda',
@@ -14,68 +21,84 @@ export const agodaScraper: OtaScraper = {
     return `
       (function() {
         try {
-          // Agoda YCS 예약 목록 테이블 파싱
-          const rows = document.querySelectorAll('table tbody tr, [class*="booking-row"], [class*="reservation-row"], [data-testid*="booking"]');
-          if (rows.length === 0) {
-            // 텍스트 기반 추출 시도
-            const text = document.body.innerText;
-            if (text.indexOf('Booking ID') === -1 && text.indexOf('booking') === -1) {
-              return JSON.stringify({ success: true, reservations: [] });
-            }
-          }
-
+          const allText = document.body.innerText;
           const reservations = [];
-          rows.forEach(row => {
-            const cells = row.querySelectorAll('td');
-            const rowText = row.textContent.trim();
 
-            // Booking ID 추출 (숫자 패턴)
-            const bookingIdMatch = rowText.match(/(\\d{6,15})/);
-            if (!bookingIdMatch) return;
+          // ID 패턴으로 예약 찾기
+          const idPattern = /ID:\\s*(\\d{6,})/g;
+          let match;
+          while ((match = idPattern.exec(allText)) !== null) {
+            const bookingId = match[1];
+            const idx = match.index;
 
-            // 게스트 이름 (영문 또는 한글)
-            const nameMatch = rowText.match(/([A-Z][a-z]+ [A-Z][a-z]+|[가-힣]{2,4})/);
+            // ID 앞의 텍스트에서 게스트 이름과 상태 추출
+            const before = allText.substring(Math.max(0, idx - 300), idx);
+            // ID 뒤의 텍스트에서 날짜, 객실 추출
+            const after = allText.substring(idx, Math.min(allText.length, idx + 500));
 
-            // 날짜 추출 (다양한 형식 지원)
-            const datePattern = /(\\d{4}-\\d{2}-\\d{2}|\\d{2}\\/\\d{2}\\/\\d{4}|\\d{2} [A-Za-z]{3} \\d{4})/g;
-            const dates = rowText.match(datePattern) || [];
-
-            // 금액 추출
-            const amountMatch = rowText.match(/(?:KRW|₩|\\\\)\\s*([\\d,]+)/);
-
-            let checkIn = dates[0] || '${date}';
-            let checkOut = dates[1] || '${date}';
-            // 날짜 형식 정규화 (YYYY-MM-DD)
-            if (checkIn.includes('/')) {
-              const parts = checkIn.split('/');
-              checkIn = parts[2] + '-' + parts[0].padStart(2, '0') + '-' + parts[1].padStart(2, '0');
+            // 상태
+            const statusParts = before.split(/(확정된 예약|취소된 예약|변경된 예약|Confirmed|Cancelled)/);
+            let status = '확정된 예약';
+            if (statusParts.length >= 2) {
+              status = statusParts[statusParts.length - 1].trim() || statusParts[statusParts.length - 2].trim();
             }
-            if (checkOut.includes('/')) {
-              const parts = checkOut.split('/');
-              checkOut = parts[2] + '-' + parts[0].padStart(2, '0') + '-' + parts[1].padStart(2, '0');
+            const statusMatch = before.match(/(확정된 예약|취소된 예약|변경된 예약|Confirmed|Cancelled)[^]*$/);
+            if (statusMatch) status = statusMatch[1];
+
+            // 게스트 이름: ID: 바로 앞 줄
+            const beforeLines = before.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
+            let guestName = 'Guest';
+            // 마지막 비어있지 않은 줄이 이름
+            for (let i = beforeLines.length - 1; i >= 0; i--) {
+              const line = beforeLines[i];
+              if (line.match(/^[A-Za-z\\s]+$/) && line.length > 2 && line.length < 50) {
+                guestName = line;
+                break;
+              }
+              if (line.match(/^[가-힣]{2,4}$/)) {
+                guestName = line;
+                break;
+              }
             }
 
-            // 상태 추출
-            const statusMatch = rowText.match(/(Confirmed|Cancelled|No-show|Checked.in|Checked.out|confirmed|cancelled)/i);
+            // 날짜: 한국어 형식 "2026년 3월 9일 - 2026년 3월 11일 • 2박"
+            const dateMatch = after.match(/(\\d{4})년\\s*(\\d{1,2})월\\s*(\\d{1,2})일\\s*-\\s*(\\d{4})년\\s*(\\d{1,2})월\\s*(\\d{1,2})일\\s*•\\s*(\\d+)박/);
+            // 영문 형식 fallback "09 Mar 2026 - 11 Mar 2026"
+            const dateMatchEn = !dateMatch ? after.match(/(\\d{2})\\s+(\\w{3})\\s+(\\d{4})\\s*-\\s*(\\d{2})\\s+(\\w{3})\\s+(\\d{4})/) : null;
+
+            let checkInDate = '${date}', checkOutDate = '${date}', nights = 1;
+            if (dateMatch) {
+              checkInDate = dateMatch[1] + '-' + dateMatch[2].padStart(2, '0') + '-' + dateMatch[3].padStart(2, '0');
+              checkOutDate = dateMatch[4] + '-' + dateMatch[5].padStart(2, '0') + '-' + dateMatch[6].padStart(2, '0');
+              nights = parseInt(dateMatch[7]);
+            }
+
+            // 객실 타입: "객실명 (객실ID)"
+            const roomMatch = after.match(/\\n([^\\n]+)\\s+\\((\\d{6,})\\)/);
+            const roomTypeName = roomMatch ? roomMatch[1].trim() : '';
+            const roomTypeId = roomMatch ? roomMatch[2] : null;
+
+            // 성인 수
+            const guestsMatch = after.match(/성인\\s*(\\d+)명|adult/i);
 
             reservations.push({
-              otaReservationId: bookingIdMatch[1],
+              otaReservationId: bookingId,
               channel: 'agoda',
-              guestName: nameMatch ? nameMatch[1] : 'Guest',
+              guestName,
               guestPhone: null,
-              checkInDate: checkIn,
-              checkOutDate: checkOut,
+              checkInDate,
+              checkOutDate,
               entryType: 'stay',
-              nights: 1,
-              roomTypeName: '',
-              otaRoomTypeId: null,
-              amount: amountMatch ? parseInt(amountMatch[1].replace(/,/g, '')) : 0,
+              nights,
+              roomTypeName,
+              otaRoomTypeId: roomTypeId,
+              amount: 0,
               depositAmount: 0,
-              otaStatus: statusMatch ? statusMatch[1] : 'Confirmed',
+              otaStatus: status,
               reservedAt: null,
-              rawData: { rowText: rowText.substring(0, 300) }
+              rawData: { guestCount: guestsMatch ? parseInt(guestsMatch[1]) : 1 }
             });
-          });
+          }
 
           return JSON.stringify({ success: true, reservations });
         } catch (e) {
