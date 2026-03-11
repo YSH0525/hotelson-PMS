@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { RefreshCw, ExternalLink, Check, X, AlertCircle, Clock, Loader2, Plug, Copy, BookMarked } from 'lucide-react'
@@ -25,7 +25,7 @@ import {
 import { CHANNELS, OTA_PARTNER_SITES, type OtaKey } from '@/lib/channels'
 import { OTA_SCRAPERS } from '@/lib/ota'
 import { useOtaConnections, useUpsertOtaConnection, useUpdateOtaConnection } from '@/hooks/use-ota-connections'
-import { useOtaSyncLogs } from '@/hooks/use-ota-sync'
+import { useOtaSyncLogs, useCreateSyncLog } from '@/hooks/use-ota-sync'
 import type { OtaConnection } from '@/types/database'
 
 const OTA_KEYS = Object.keys(OTA_PARTNER_SITES) as OtaKey[]
@@ -55,24 +55,34 @@ export default function OtaSyncPage() {
   const popupRef = useRef<Window | null>(null)
 
   // 연결 맵 생성 (channel → connection)
-  const connectionMap = new Map<string, OtaConnection>()
-  connections.forEach((c) => connectionMap.set(c.channel, c))
+  const connectionMap = useMemo(() => {
+    const map = new Map<string, OtaConnection>()
+    connections.forEach((c) => map.set(c.channel, c))
+    return map
+  }, [connections])
+
+  const createSyncLog = useCreateSyncLog()
 
   /** OTA 연결 토글 */
   const handleToggle = useCallback(async (channel: string, enabled: boolean) => {
-    const existing = connectionMap.get(channel)
-    const site = OTA_PARTNER_SITES[channel as OtaKey]
+    try {
+      const existing = connectionMap.get(channel)
+      const site = OTA_PARTNER_SITES[channel as OtaKey]
 
-    if (existing) {
-      await updateConnection.mutateAsync({ id: existing.id, is_enabled: enabled })
-    } else {
-      await upsertConnection.mutateAsync({
-        channel,
-        is_enabled: enabled,
-        partner_url: site?.url ?? null,
-      })
+      if (existing) {
+        await updateConnection.mutateAsync({ id: existing.id, is_enabled: enabled })
+      } else {
+        await upsertConnection.mutateAsync({
+          channel,
+          is_enabled: enabled,
+          partner_url: site?.url ?? null,
+        })
+      }
+      toast.success(`${CHANNELS[channel as keyof typeof CHANNELS]?.label ?? channel} ${enabled ? '활성화' : '비활성화'}`)
+    } catch (error) {
+      console.error('OTA 토글 에러:', error)
+      toast.error(`OTA 연결 변경에 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
     }
-    toast.success(`${CHANNELS[channel as keyof typeof CHANNELS]?.label} ${enabled ? '활성화' : '비활성화'}`)
   }, [connectionMap, updateConnection, upsertConnection])
 
   /**
@@ -175,10 +185,55 @@ export default function OtaSyncPage() {
       setSyncingChannel(null)
 
     } catch (error) {
-      toast.error('동기화 중 오류가 발생했습니다')
+      console.error('동기화 에러:', error)
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        toast.error('클립보드 접근이 차단되었습니다. 브라우저 설정에서 클립보드를 허용해주세요.')
+      } else {
+        toast.error(`동기화 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
+      }
       setSyncingChannel(null)
     }
   }, [generateScrapeScript])
+
+  /** 가져온 예약 데이터를 Supabase에 저장 (동기화 로그 + 연결 상태 업데이트) */
+  const saveImportedReservations = useCallback(async (channel: string, reservations: Record<string, unknown>[]) => {
+    const conn = connectionMap.get(channel)
+    if (!conn) return
+
+    try {
+      // 동기화 로그에 raw_data로 저장
+      await createSyncLog.mutateAsync({
+        connection_id: conn.id,
+        channel,
+        sync_date: format(new Date(), 'yyyy-MM-dd'),
+        status: 'success',
+        reservations_found: reservations.length,
+        reservations_created: reservations.length,
+        reservations_skipped: 0,
+        raw_data: JSON.parse(JSON.stringify({ reservations })),
+      })
+
+      // 연결 상태 업데이트
+      await updateConnection.mutateAsync({
+        id: conn.id,
+        sync_status: 'success',
+        last_sync_at: new Date().toISOString(),
+        error_message: null,
+      })
+
+      toast.success(`${reservations.length}건의 예약 동기화 완료`)
+    } catch (error) {
+      console.error('예약 저장 에러:', error)
+      try {
+        await updateConnection.mutateAsync({
+          id: conn.id,
+          sync_status: 'error',
+          error_message: error instanceof Error ? error.message : '저장 실패',
+        })
+      } catch { /* ignore */ }
+      toast.error(`예약 데이터 저장 중 오류: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
+    }
+  }, [connectionMap, createSyncLog, updateConnection])
 
   /** 클립보드에서 데이터 붙여넣기 (postMessage가 안 될 경우) */
   const handlePasteData = useCallback(async () => {
@@ -189,15 +244,21 @@ export default function OtaSyncPage() {
       if (data.channel && data.reservations) {
         setImportedData(data)
         toast.success(
-          `${CHANNELS[data.channel as keyof typeof CHANNELS]?.label}에서 ${data.reservations.length}건의 예약을 가져왔습니다`
+          `${CHANNELS[data.channel as keyof typeof CHANNELS]?.label ?? data.channel}에서 ${data.reservations.length}건의 예약을 가져왔습니다`
         )
+        // 가져온 데이터를 Supabase에 저장
+        saveImportedReservations(data.channel, data.reservations)
       } else {
         toast.error('유효한 OTA 데이터가 아닙니다')
       }
-    } catch {
-      toast.error('클립보드에 유효한 데이터가 없습니다')
+    } catch (error) {
+      if (error instanceof DOMException) {
+        toast.error('클립보드 접근이 차단되었습니다. 브라우저 설정을 확인하세요.')
+      } else {
+        toast.error('클립보드에 유효한 데이터가 없습니다')
+      }
     }
-  }, [])
+  }, [saveImportedReservations])
 
   /** postMessage 리스너 - 스크래핑 스크립트에서 데이터 수신 */
   useEffect(() => {
@@ -207,14 +268,15 @@ export default function OtaSyncPage() {
         setSyncDialogOpen(false)
         setImportedData({ channel, reservations })
         toast.success(
-          `${CHANNELS[channel as keyof typeof CHANNELS]?.label}에서 ${reservations?.length ?? 0}건의 예약을 가져왔습니다!`
+          `${CHANNELS[channel as keyof typeof CHANNELS]?.label ?? channel}에서 ${reservations?.length ?? 0}건의 예약을 가져왔습니다!`
         )
-        // TODO: 예약 데이터를 Supabase에 저장하는 로직
+        // 가져온 데이터를 Supabase에 저장
+        saveImportedReservations(channel, reservations)
       }
     }
     window.addEventListener('message', handleMessage)
     return () => window.removeEventListener('message', handleMessage)
-  }, [])
+  }, [saveImportedReservations])
 
   if (isLoading) {
     return (
@@ -417,10 +479,11 @@ export default function OtaSyncPage() {
                       defaultValue={conn?.property_id ?? ''}
                       className="h-8 text-sm"
                       onBlur={(e) => {
-                        if (conn && e.target.value !== (conn.property_id ?? '')) {
+                        const val = e.target.value.trim()
+                        if (conn && val !== (conn.property_id ?? '')) {
                           updateConnection.mutate({
                             id: conn.id,
-                            property_id: e.target.value || null,
+                            property_id: val || null,
                           })
                         }
                       }}
