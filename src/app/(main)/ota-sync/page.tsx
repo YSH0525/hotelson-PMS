@@ -86,43 +86,47 @@ export default function OtaSyncPage() {
   }, [connectionMap, updateConnection, upsertConnection])
 
   /**
-   * 스크래핑 스크립트 생성
-   * - OTA 사이트의 콘솔에서 실행하면 예약 데이터를 추출하고
-   * - PMS 창으로 postMessage를 보내거나 결과를 alert로 표시
+   * 북마클릿 URL 생성
+   * - OTA 사이트에서 북마크를 클릭하면 API에서 스크래핑 스크립트를 로드하고 실행
+   */
+  const generateBookmarkletUrl = useCallback((channel: string) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    return `javascript:void(document.head.appendChild(Object.assign(document.createElement('script'),{src:'${origin}/api/ota-script?channel=${channel}&origin=${encodeURIComponent(origin)}&t='+Date.now()})))`
+  }, [])
+
+  /**
+   * 스크래핑 스크립트 생성 (콘솔용 - 폴백)
    */
   const generateScrapeScript = useCallback((channel: string) => {
     const scraper = OTA_SCRAPERS[channel]
     if (!scraper) return ''
     const today = format(new Date(), 'yyyy-MM-dd')
     const innerScript = scraper.getScrapeScript(today)
+    const origin = typeof window !== 'undefined' ? window.location.origin : '*'
 
-    // 스크래핑 결과를 PMS로 전달하는 래퍼 스크립트
     return `
 (function() {
   var result = ${innerScript.trim()};
   var parsed = typeof result === 'string' ? JSON.parse(result) : result;
 
   if (parsed.success && parsed.reservations && parsed.reservations.length > 0) {
-    // PMS 창으로 데이터 전송 시도
     if (window.opener) {
       window.opener.postMessage({
         type: 'OTA_SCRAPE_RESULT',
         channel: '${channel}',
         reservations: parsed.reservations
-      }, '*');
-      alert('[PMS 동기화] ' + parsed.reservations.length + '건의 예약을 PMS로 전송했습니다! PMS 창을 확인하세요.');
+      }, '${origin}');
+      alert('[HotelsON PMS] ' + parsed.reservations.length + '건의 예약을 PMS로 전송했습니다!');
     } else {
-      // opener가 없으면 결과를 클립보드에 복사
       var dataStr = JSON.stringify({ channel: '${channel}', reservations: parsed.reservations });
       navigator.clipboard.writeText(dataStr).then(function() {
-        alert('[PMS 동기화] ' + parsed.reservations.length + '건의 예약 데이터가 클립보드에 복사되었습니다!\\nPMS OTA 연동 페이지에서 "데이터 붙여넣기" 버튼을 사용하세요.');
+        alert('[HotelsON PMS] ' + parsed.reservations.length + '건 복사됨. PMS에서 "클립보드에서 데이터 가져오기" 클릭하세요.');
       }).catch(function() {
-        // 클립보드도 안되면 prompt로 표시
-        prompt('[PMS 동기화] ' + parsed.reservations.length + '건 추출 완료. 아래 데이터를 복사하세요:', dataStr);
+        prompt('[HotelsON PMS] 데이터를 복사하세요:', dataStr);
       });
     }
   } else {
-    alert('[PMS 동기화] 예약 데이터를 찾을 수 없습니다.\\n' + (parsed.error || '예약 목록이 비어있습니다.'));
+    alert('[HotelsON PMS] 예약 데이터를 찾을 수 없습니다.\\n' + (parsed.error || '예약 목록이 비어있습니다.'));
   }
 })();`.trim()
   }, [])
@@ -328,9 +332,9 @@ export default function OtaSyncPage() {
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
           <p><strong>1단계:</strong> 각 OTA를 활성화하고 파트너 사이트에 미리 로그인해주세요.</p>
-          <p><strong>2단계:</strong> &quot;동기화&quot; 버튼을 클릭하면 파트너 사이트가 새 창으로 열리고, 스크립트가 자동 복사됩니다.</p>
-          <p><strong>3단계:</strong> 열린 파트너 사이트에서 <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs font-mono">F12</kbd> → <strong>Console</strong> 탭 → <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs font-mono">Ctrl+V</kbd> 붙여넣기 → <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs font-mono">Enter</kbd></p>
-          <p><strong>4단계:</strong> 예약 데이터가 자동으로 PMS에 전송됩니다.</p>
+          <p><strong>2단계:</strong> &quot;동기화&quot; 버튼을 클릭하면 파트너 사이트가 새 창으로 열리고, <strong>북마클릿 링크</strong>가 표시됩니다.</p>
+          <p><strong>3단계:</strong> 북마클릿 링크를 <strong>북마크바에 드래그</strong>하세요 (최초 1회).</p>
+          <p><strong>4단계:</strong> 파트너 사이트의 예약 목록 페이지에서 <strong>북마크를 클릭</strong>하면 자동으로 예약을 가져옵니다.</p>
           <p className="text-xs mt-2 text-amber-600">* 각 OTA 파트너 사이트에 로그인 상태여야 합니다.</p>
         </CardContent>
       </Card>
@@ -358,41 +362,43 @@ export default function OtaSyncPage() {
               {syncDialogChannel && CHANNELS[syncDialogChannel as keyof typeof CHANNELS]?.label} 동기화
             </DialogTitle>
             <DialogDescription>
-              파트너 사이트가 새 창으로 열렸습니다. 아래 단계를 따라주세요.
+              파트너 사이트가 새 창으로 열렸습니다. 아래 북마클릿을 사용하세요.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
+            {/* 북마클릿 링크 */}
+            <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-4 rounded-lg text-center space-y-2">
+              <p className="text-sm font-medium">아래 버튼을 <strong>북마크바에 드래그</strong>하세요 (최초 1회)</p>
+              {syncDialogChannel && (
+                <a
+                  href={generateBookmarkletUrl(syncDialogChannel)}
+                  onClick={(e) => e.preventDefault()}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-medium text-sm shadow-md hover:shadow-lg cursor-grab active:cursor-grabbing select-none"
+                  draggable
+                >
+                  <BookMarked className="h-4 w-4" />
+                  {CHANNELS[syncDialogChannel as keyof typeof CHANNELS]?.label ?? syncDialogChannel} 예약 가져오기
+                </a>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">
+                Ctrl+Shift+B 로 북마크바를 표시할 수 있습니다
+              </p>
+            </div>
+
+            {/* 사용 방법 */}
             <div className="bg-muted p-4 rounded-lg space-y-3">
               <div className="flex items-start gap-3">
                 <Badge variant="outline" className="mt-0.5 shrink-0">1</Badge>
-                <p className="text-sm">파트너 사이트에서 <strong>예약 목록 페이지</strong>가 보이는지 확인하세요.</p>
+                <p className="text-sm">위의 파란 버튼을 <strong>북마크바로 드래그</strong>하세요.</p>
               </div>
               <div className="flex items-start gap-3">
                 <Badge variant="outline" className="mt-0.5 shrink-0">2</Badge>
-                <p className="text-sm">
-                  키보드 <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs font-mono">F12</kbd> 를 눌러
-                  <strong> 개발자 도구</strong>를 엽니다.
-                </p>
+                <p className="text-sm">열린 파트너 사이트에서 <strong>예약 목록 페이지</strong>가 보이는지 확인하세요.</p>
               </div>
               <div className="flex items-start gap-3">
                 <Badge variant="outline" className="mt-0.5 shrink-0">3</Badge>
-                <p className="text-sm">
-                  상단 탭에서 <strong>Console</strong>을 선택합니다.
-                </p>
-              </div>
-              <div className="flex items-start gap-3">
-                <Badge variant="outline" className="mt-0.5 shrink-0">4</Badge>
-                <p className="text-sm">
-                  콘솔 입력창을 클릭하고 <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs font-mono">Ctrl+V</kbd> 로
-                  붙여넣기 후 <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs font-mono">Enter</kbd> 를 누릅니다.
-                </p>
-              </div>
-              <div className="flex items-start gap-3">
-                <Badge variant="outline" className="mt-0.5 shrink-0">5</Badge>
-                <p className="text-sm">
-                  예약 데이터가 추출되면 <strong>자동으로 이 창에 전송</strong>됩니다.
-                </p>
+                <p className="text-sm">북마크바에 추가된 <strong>북마크를 클릭</strong>하면 자동으로 예약을 가져옵니다.</p>
               </div>
             </div>
 
@@ -403,7 +409,7 @@ export default function OtaSyncPage() {
                 onClick={() => syncDialogChannel && copyScriptToClipboard(syncDialogChannel)}
               >
                 <Copy className="mr-1 h-4 w-4" />
-                스크립트 다시 복사
+                콘솔용 스크립트 복사
               </Button>
               <Button
                 variant="default"
