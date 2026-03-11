@@ -332,6 +332,134 @@ export interface Database {
         }
         Relationships: []
       }
+      ota_connections: {
+        Row: {
+          id: string
+          channel: string
+          is_enabled: boolean
+          partner_url: string | null
+          property_id: string | null
+          last_sync_at: string | null
+          sync_status: 'idle' | 'syncing' | 'success' | 'error'
+          error_message: string | null
+          settings: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          channel: string
+          is_enabled?: boolean
+          partner_url?: string | null
+          property_id?: string | null
+          last_sync_at?: string | null
+          sync_status?: 'idle' | 'syncing' | 'success' | 'error'
+          error_message?: string | null
+          settings?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          is_enabled?: boolean
+          partner_url?: string | null
+          property_id?: string | null
+          last_sync_at?: string | null
+          sync_status?: 'idle' | 'syncing' | 'success' | 'error'
+          error_message?: string | null
+          settings?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ota_sync_logs: {
+        Row: {
+          id: string
+          connection_id: string
+          channel: string
+          sync_date: string
+          status: 'started' | 'success' | 'error'
+          reservations_found: number
+          reservations_created: number
+          reservations_updated: number
+          reservations_skipped: number
+          error_message: string | null
+          raw_data: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          connection_id: string
+          channel: string
+          sync_date: string
+          status: 'started' | 'success' | 'error'
+          reservations_found?: number
+          reservations_created?: number
+          reservations_updated?: number
+          reservations_skipped?: number
+          error_message?: string | null
+          raw_data?: Json
+          created_at?: string
+        }
+        Update: {
+          status?: 'started' | 'success' | 'error'
+          reservations_found?: number
+          reservations_created?: number
+          reservations_updated?: number
+          reservations_skipped?: number
+          error_message?: string | null
+          raw_data?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ota_sync_logs_connection_id_fkey'
+            columns: ['connection_id']
+            isOneToOne: false
+            referencedRelation: 'ota_connections'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      ota_reservation_map: {
+        Row: {
+          id: string
+          reservation_id: string
+          channel: string
+          ota_reservation_id: string
+          ota_status: string | null
+          ota_amount: number
+          ota_deposit_amount: number
+          raw_data: Json
+          synced_at: string
+        }
+        Insert: {
+          id?: string
+          reservation_id: string
+          channel: string
+          ota_reservation_id: string
+          ota_status?: string | null
+          ota_amount?: number
+          ota_deposit_amount?: number
+          raw_data?: Json
+          synced_at?: string
+        }
+        Update: {
+          ota_status?: string | null
+          ota_amount?: number
+          ota_deposit_amount?: number
+          raw_data?: Json
+          synced_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ota_reservation_map_reservation_id_fkey'
+            columns: ['reservation_id']
+            isOneToOne: false
+            referencedRelation: 'reservations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -364,3 +492,10 @@ export type Profile = Database['public']['Tables']['profiles']['Row']
 export type HotelSettings = Database['public']['Tables']['hotel_settings']['Row']
 export type CashLedger = Database['public']['Tables']['cash_ledger']['Row']
 export type CashLedgerInsert = Database['public']['Tables']['cash_ledger']['Insert']
+export type OtaConnection = Database['public']['Tables']['ota_connections']['Row']
+export type OtaConnectionInsert = Database['public']['Tables']['ota_connections']['Insert']
+export type OtaConnectionUpdate = Database['public']['Tables']['ota_connections']['Update']
+export type OtaSyncLog = Database['public']['Tables']['ota_sync_logs']['Row']
+export type OtaSyncLogInsert = Database['public']['Tables']['ota_sync_logs']['Insert']
+export type OtaReservationMap = Database['public']['Tables']['ota_reservation_map']['Row']
+export type OtaReservationMapInsert = Database['public']['Tables']['ota_reservation_map']['Insert']

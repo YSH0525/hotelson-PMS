@@ -13,6 +13,7 @@ import {
   FormInput,
   Package,
   Banknote,
+  RefreshCw,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -41,6 +42,7 @@ const mainMenuItems = [
   { title: '당일판매일지', url: '/daily-report', icon: FileText },
   { title: '현금 시재', url: '/cash-management', icon: Banknote },
   { title: '보고서', url: '/reports', icon: BarChart3 },
+  { title: 'OTA 연동', url: '/ota-sync', icon: RefreshCw },
 ]
 
 const settingsMenuItems = [

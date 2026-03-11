@@ -282,6 +282,76 @@ INSERT INTO form_schemas (name, is_default, fields) VALUES (
 ) ON CONFLICT DO NOTHING;
 
 -- =============================================
+-- OTA 연동 관리
+-- =============================================
+
+-- OTA 연결 설정
+CREATE TABLE IF NOT EXISTS ota_connections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  channel TEXT NOT NULL UNIQUE,          -- 'yanolja', 'yeogi', 'agoda' 등
+  is_enabled BOOLEAN DEFAULT false,      -- 연동 활성화 여부
+  partner_url TEXT,                      -- 파트너 사이트 URL
+  property_id TEXT,                      -- OTA측 숙소 ID (야놀자: 10044600 등)
+  last_sync_at TIMESTAMPTZ,             -- 마지막 동기화 시각
+  sync_status TEXT DEFAULT 'idle' CHECK (sync_status IN ('idle', 'syncing', 'success', 'error')),
+  error_message TEXT,                    -- 마지막 에러 메시지
+  settings JSONB DEFAULT '{}',           -- OTA별 추가 설정
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- OTA 동기화 로그
+CREATE TABLE IF NOT EXISTS ota_sync_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  connection_id UUID NOT NULL REFERENCES ota_connections(id) ON DELETE CASCADE,
+  channel TEXT NOT NULL,
+  sync_date DATE NOT NULL,              -- 동기화 대상 날짜
+  status TEXT NOT NULL CHECK (status IN ('started', 'success', 'error')),
+  reservations_found INTEGER DEFAULT 0, -- 발견된 예약 수
+  reservations_created INTEGER DEFAULT 0,-- 신규 생성된 예약 수
+  reservations_updated INTEGER DEFAULT 0,-- 업데이트된 예약 수
+  reservations_skipped INTEGER DEFAULT 0,-- 중복 스킵된 예약 수
+  error_message TEXT,
+  raw_data JSONB,                       -- 스크래핑 원본 데이터 (디버깅용)
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- OTA 예약 매핑 (OTA 예약번호 ↔ PMS 예약 ID 매핑)
+CREATE TABLE IF NOT EXISTS ota_reservation_map (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reservation_id UUID NOT NULL REFERENCES reservations(id) ON DELETE CASCADE,
+  channel TEXT NOT NULL,
+  ota_reservation_id TEXT NOT NULL,     -- OTA측 예약번호
+  ota_status TEXT,                      -- OTA측 예약 상태
+  ota_amount INTEGER DEFAULT 0,         -- OTA측 판매가
+  ota_deposit_amount INTEGER DEFAULT 0, -- OTA측 입금예정가
+  raw_data JSONB,                       -- OTA 원본 데이터
+  synced_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(channel, ota_reservation_id)   -- OTA별 예약번호 유니크
+);
+
+-- 인덱스
+CREATE INDEX IF NOT EXISTS idx_ota_connections_channel ON ota_connections(channel);
+CREATE INDEX IF NOT EXISTS idx_ota_sync_logs_connection ON ota_sync_logs(connection_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ota_sync_logs_date ON ota_sync_logs(sync_date, channel);
+CREATE INDEX IF NOT EXISTS idx_ota_reservation_map_channel ON ota_reservation_map(channel, ota_reservation_id);
+CREATE INDEX IF NOT EXISTS idx_ota_reservation_map_reservation ON ota_reservation_map(reservation_id);
+
+-- RLS
+ALTER TABLE ota_connections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ota_sync_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ota_reservation_map ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "authenticated_full_access" ON ota_connections FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "authenticated_full_access" ON ota_sync_logs FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "authenticated_full_access" ON ota_reservation_map FOR ALL USING (auth.role() = 'authenticated');
+
+-- updated_at 트리거
+CREATE TRIGGER update_ota_connections_updated_at
+  BEFORE UPDATE ON ota_connections
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- =============================================
 -- Realtime 구독 활성화
 -- =============================================
 ALTER PUBLICATION supabase_realtime ADD TABLE reservations;
