@@ -26,6 +26,7 @@ import { CHANNELS, OTA_PARTNER_SITES, type OtaKey } from '@/lib/channels'
 import { OTA_SCRAPERS } from '@/lib/ota'
 import { useOtaConnections, useUpsertOtaConnection, useUpdateOtaConnection } from '@/hooks/use-ota-connections'
 import { useOtaSyncLogs, useCreateSyncLog } from '@/hooks/use-ota-sync'
+import { createClient } from '@/lib/supabase/client'
 import type { OtaConnection } from '@/types/database'
 
 const OTA_KEYS = Object.keys(OTA_PARTNER_SITES) as OtaKey[]
@@ -199,25 +200,174 @@ export default function OtaSyncPage() {
     }
   }, [generateScrapeScript])
 
-  /** 가져온 예약 데이터를 Supabase에 저장 (동기화 로그 + 연결 상태 업데이트) */
+  /** 가져온 예약 데이터를 Supabase에 저장 (예약 생성 + 매핑 + 동기화 로그) */
   const saveImportedReservations = useCallback(async (channel: string, reservations: Record<string, unknown>[]) => {
     const conn = connectionMap.get(channel)
     if (!conn) return
 
+    const supabase = createClient()
+
     try {
-      // 동기화 로그에 raw_data로 저장
+      // 1. room_types, rooms, 기존 OTA 매핑 조회
+      const [{ data: roomTypes }, { data: rooms }, { data: existingMaps }] = await Promise.all([
+        supabase.from('room_types').select('*').order('sort_order'),
+        supabase.from('rooms').select('*'),
+        supabase.from('ota_reservation_map').select('ota_reservation_id').eq('channel', channel),
+      ])
+
+      if (!roomTypes?.length || !rooms?.length) {
+        throw new Error('객실 정보를 불러올 수 없습니다. 객실 관리에서 객실을 먼저 등록하세요.')
+      }
+
+      const existingOtaIds = new Set((existingMaps ?? []).map((m: { ota_reservation_id: string }) => m.ota_reservation_id))
+
+      // 2. OTA 객실타입명 → PMS room_type 매핑 함수
+      const matchRoomType = (otaRoomName: string) => {
+        if (!otaRoomName) return roomTypes[0]
+        // 정확한 포함 매치: "스탠다드 더블" → "스탠다드"
+        const matched = roomTypes.find((rt: { name: string }) => otaRoomName.includes(rt.name))
+        if (matched) return matched
+        // 역방향: "비지니스" → "비지니스 더블"에 포함
+        const reverseMatched = roomTypes.find((rt: { name: string }) => rt.name.includes(otaRoomName))
+        if (reverseMatched) return reverseMatched
+        // 매치 실패 시 첫번째 타입 (보통 스탠다드)
+        return roomTypes[0]
+      }
+
+      // 3. 기간 내 기존 예약 조회 (방 충돌 체크용)
+      const validRes = reservations.filter((r) => {
+        const status = String((r as Record<string, unknown>).otaStatus ?? (r as Record<string, unknown>).status ?? '')
+        return !status.includes('취소') && status.toLowerCase() !== 'cancelled'
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allCheckIns = validRes.map((r: any) => r.checkInDate || r.checkIn).filter(Boolean) as string[]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allCheckOuts = validRes.map((r: any) => r.checkOutDate || r.checkOut).filter(Boolean) as string[]
+
+      const minDate = allCheckIns.length ? allCheckIns.sort()[0] : format(new Date(), 'yyyy-MM-dd')
+      const maxDate = allCheckOuts.length ? [...allCheckOuts].sort().reverse()[0] : format(new Date(), 'yyyy-MM-dd')
+
+      const { data: existingReservations } = await supabase
+        .from('reservations')
+        .select('room_id, check_in_date, check_out_date')
+        .lt('check_in_date', maxDate)
+        .gt('check_out_date', minDate)
+        .in('status', ['confirmed', 'checked_in'])
+
+      // 점유된 방 체크 함수
+      const occupiedList = [...(existingReservations ?? [])]
+      const isRoomOccupied = (roomId: string, checkIn: string, checkOut: string) => {
+        return occupiedList.some(
+          (er) => er.room_id === roomId && er.check_in_date < checkOut && er.check_out_date > checkIn
+        )
+      }
+
+      // 4. 예약 생성 루프
+      let created = 0
+      let skipped = 0
+      const channelLabel = CHANNELS[channel as keyof typeof CHANNELS]?.label ?? channel
+
+      for (const res of reservations) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const r = res as any
+        const otaId = String(r.otaReservationId || r.id || '')
+        const otaStatus = String(r.otaStatus || r.status || '')
+
+        // 취소된 예약 스킵
+        if (otaStatus.includes('취소') || otaStatus.toLowerCase() === 'cancelled') {
+          skipped++
+          continue
+        }
+
+        // 이미 등록된 OTA 예약번호면 스킵
+        if (existingOtaIds.has(otaId)) {
+          skipped++
+          continue
+        }
+
+        const checkIn = String(r.checkInDate || r.checkIn || '')
+        const checkOut = String(r.checkOutDate || r.checkOut || '')
+        if (!checkIn || !checkOut) {
+          skipped++
+          continue
+        }
+
+        const roomType = matchRoomType(String(r.roomTypeName || r.room || ''))
+
+        // 같은 타입의 빈 방 찾기
+        const typeRooms = rooms.filter((rm: { room_type_id: string }) => rm.room_type_id === roomType.id)
+        let targetRoom = typeRooms.find((rm: { id: string }) => !isRoomOccupied(rm.id, checkIn, checkOut))
+
+        // 같은 타입에 빈 방이 없으면, 아무 빈 방 찾기
+        if (!targetRoom) {
+          targetRoom = rooms.find((rm: { id: string }) => !isRoomOccupied(rm.id, checkIn, checkOut))
+        }
+
+        if (!targetRoom) {
+          console.warn(`빈 방 없음: ${r.guestName || r.guest} (${checkIn}~${checkOut})`)
+          skipped++
+          continue
+        }
+
+        // reservations 테이블에 INSERT
+        const { data: newReservation, error: insertError } = await supabase
+          .from('reservations')
+          .insert({
+            room_id: targetRoom.id,
+            room_type_id: roomType.id,
+            check_in_date: checkIn,
+            check_out_date: checkOut,
+            guest_name: String(r.guestName || r.guest || 'OTA Guest'),
+            guest_phone: r.guestPhone || null,
+            status: 'confirmed' as const,
+            entry_type: 'stay' as const,
+            total_amount: Number(r.amount || 0),
+            memo: `[${channelLabel}] 예약번호: ${otaId}`,
+            custom_fields: {},
+          })
+          .select()
+          .single()
+
+        if (insertError) {
+          console.error('예약 생성 실패:', insertError)
+          skipped++
+          continue
+        }
+
+        // ota_reservation_map에 매핑 기록
+        await supabase.from('ota_reservation_map').upsert(
+          {
+            reservation_id: newReservation.id,
+            channel,
+            ota_reservation_id: otaId,
+            ota_status: otaStatus,
+            ota_amount: Number(r.amount || 0),
+            ota_deposit_amount: Number(r.depositAmount || 0),
+            raw_data: JSON.parse(JSON.stringify(r)),
+          },
+          { onConflict: 'channel,ota_reservation_id' }
+        )
+
+        // 점유 목록에 추가 (이후 반복에서 충돌 방지)
+        occupiedList.push({ room_id: targetRoom.id, check_in_date: checkIn, check_out_date: checkOut })
+        existingOtaIds.add(otaId)
+        created++
+      }
+
+      // 5. 동기화 로그 저장
       await createSyncLog.mutateAsync({
         connection_id: conn.id,
         channel,
         sync_date: format(new Date(), 'yyyy-MM-dd'),
         status: 'success',
         reservations_found: reservations.length,
-        reservations_created: reservations.length,
-        reservations_skipped: 0,
+        reservations_created: created,
+        reservations_skipped: skipped,
         raw_data: JSON.parse(JSON.stringify({ reservations })),
       })
 
-      // 연결 상태 업데이트
+      // 6. 연결 상태 업데이트
       await updateConnection.mutateAsync({
         id: conn.id,
         sync_status: 'success',
@@ -225,7 +375,7 @@ export default function OtaSyncPage() {
         error_message: null,
       })
 
-      toast.success(`${reservations.length}건의 예약 동기화 완료`)
+      toast.success(`${created}건 예약 생성 완료 (${skipped}건 스킵)`)
     } catch (error) {
       console.error('예약 저장 에러:', error)
       try {
