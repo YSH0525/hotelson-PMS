@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, CalendarDays, Eye, EyeOff, Search, X } from 
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { TimelineCheckinPopover } from './timeline-checkin-popover'
+import { TimelineOtaSync } from './timeline-ota-sync'
 
 export function TimelineDateNav() {
   const { startDate, goToPrevMonth, goToNextMonth, goToToday, hidePastDays, toggleHidePastDays, searchQuery, setSearchQuery } = useTimelineStore()
@@ -36,7 +37,7 @@ export function TimelineDateNav() {
         <TimelineCheckinPopover />
       </div>
 
-      {/* 중앙: 월 네비게이션 */}
+      {/* 중앙: 월 네비게이션 (flex-1로 공간 차지) */}
       <div className="flex-1 flex items-center justify-center gap-1">
         <div className="inline-flex items-center rounded-md border divide-x">
           <Button variant="ghost" size="sm" className="rounded-r-none border-0" onClick={goToToday}>
@@ -66,6 +67,11 @@ export function TimelineDateNav() {
         <Button variant="ghost" size="icon" onClick={goToNextMonth}>
           <ChevronRight className="h-4 w-4" />
         </Button>
+      </div>
+
+      {/* 오른쪽: OTA 동기화 */}
+      <div className="flex items-center gap-2">
+        <TimelineOtaSync />
       </div>
     </div>
   )
